@@ -10,10 +10,10 @@ const SPEC_WIN = 4096; // ~85 ms: lang genoeg om buurnoten (bv. sol en la) in he
 const SPEC_N = 8192; // zero-padded FFT van dat venster
 const RING = 16384;
 
-function yin(buf, sr, threshold, d) {
+function yin(buf, sr, threshold, d, minFreq = 90) {
   const half = buf.length >> 1;
   const minTau = Math.max(2, Math.floor(sr / 1100));
-  const maxTau = Math.min(half - 2, Math.floor(sr / 90));
+  const maxTau = Math.min(half - 2, Math.floor(sr / minFreq));
   for (let tau = 1; tau <= maxTau + 1; tau++) {
     let s = 0;
     for (let i = 0; i < half; i++) {
@@ -106,6 +106,7 @@ export class DetectorCore {
     this.sensitivity = 0.5;
     this.latency = 0.06;
     this.expect = []; // klinkende midi-noten die de app nu (of zo meteen) verwacht
+    this.allowed = null; // Set van klinkende midi-noten die als noot mogen tellen; null = alles
 
     this.ring = new Float32Array(RING);
     this.writePos = 0;
@@ -147,6 +148,8 @@ export class DetectorCore {
     this.lastPitch = { midi: null, looseMidi: null, cents: 0, freq: null };
     this.lastFrameSent = 0;
   }
+
+  ok(midi) { return !this.allowed || this.allowed.has(midi); }
 
   gate() {
     const base = 0.03 * Math.pow(0.08, this.sensitivity); // 0.03 .. 0.0024
@@ -236,12 +239,12 @@ export class DetectorCore {
       return sc;
     };
     let maxNewSal = 0;
-    for (let midi = 40; midi <= 84; midi++) maxNewSal = Math.max(maxNewSal, newSal(midi));
+    for (let midi = 40; midi <= 84; midi++) if (this.ok(midi)) maxNewSal = Math.max(maxNewSal, newSal(midi));
     // Beste nieuwe kandidaat: grondtoon goed hoorbaar én grotendeels nieuw.
     let best = null, bestS = 0;
     for (let midi = 40; midi <= 84; midi++) {
       const f0 = f0Of(midi);
-      if (!present(midi) || peakIn(diff, f0) + peakIn(diff, 3 * f0) < 0.1 * postMax) continue;
+      if (!this.ok(midi) || !present(midi) || peakIn(diff, f0) + peakIn(diff, 3 * f0) < 0.1 * postMax) continue;
       let sc = 0;
       for (let h = 1; h <= 8 && f0 * h <= 5000; h++) sc += peakIn(diff, f0 * h);
       if (sc > bestS) { bestS = sc; best = midi; }
@@ -269,6 +272,7 @@ export class DetectorCore {
       };
       let pick = null, pickS = 0;
       for (const m of reps) {
+        if (!this.ok(m)) continue;
         if (reps.some((l) => l < m && isOvertone(m, l) && newFrac(l) >= 0.25)) continue;
         const f0 = f0Of(m);
         let sal = 0;
@@ -316,7 +320,7 @@ export class DetectorCore {
     const bestOf = (cands) => {
       let pick = null, pickS = -1;
       for (const c of cands) {
-        if (c > 84) continue;
+        if (c > 84 || !this.ok(c)) continue;
         const sc = newSal(c);
         if (sc > pickS) { pick = c; pickS = sc; }
       }
@@ -337,7 +341,7 @@ export class DetectorCore {
       const f0 = f0Of(m);
       return peakIn(diff, f0) >= 0.2 * Math.max(peakIn(diff, 2 * f0), peakIn(diff, 3 * f0), 1e-9) && peakIn(diff, f0) >= 0.03 * postMax;
     };
-    return { newFrac, best, choose, confirms, present, bestOf, hasFundamental, isSubharmonic, fundNew };
+    return { newFrac, best, choose, confirms, present, bestOf, hasFundamental, isSubharmonic, fundNew, isOvertoneOf };
   }
 
   // Geeft { flux, cd }: relatieve toename van de spectrale grootte, en de 'complex domain'-afwijking:
@@ -407,7 +411,7 @@ export class DetectorCore {
     if (this.hopCount % 2 === 0) {
       let midi = null, looseMidi = null, cents = 0, freq = null;
       if (rms > gate) {
-        const res = yin(w, this.sr, 0.15, this.yinBuf);
+        const res = yin(w, this.sr, 0.15, this.yinBuf, this.minFreq);
         if (res && res.clarity > 0.65) {
           const mf = freqToMidiFloat(res.freq);
           looseMidi = Math.round(mf);
@@ -488,7 +492,9 @@ export class DetectorCore {
       const strictY = this.pending.votes.length >= 2 ? mode(this.pending.votes) : null;
       // 1. YIN zeker van een toon die bij deze aanslag NIEUW is: dat is de gespeelde noot.
       //    (Zo kan een buurnoot nooit 'goedgerekend' worden omdat ze toevallig verwacht werd.)
-      const yinNew = ana && strictY != null && ana.newFrac(strictY) >= 0.3 ? strictY : null;
+      // (Een toon die niet mag, telt enkel als YIN er misschien een ondertoon van een toegelaten noot in hoorde.)
+      const yinOk = strictY != null && (this.ok(strictY) || [12, 19, 24].some((k) => this.ok(strictY + k)));
+      const yinNew = ana && yinOk && ana.newFrac(strictY) >= 0.3 ? strictY : null;
       // 2. Anders: is het een van de noten die de app nu verwacht? (helpt als er snaren naklinken)
       const hit = ana && yinNew == null ? this.expect.find((e) => ana.confirms(e, y)) : undefined;
       if (ana || (age > 0.25 && v.length)) {
@@ -509,6 +515,12 @@ export class DetectorCore {
         else if (hit != null) m = hit;
         // 3. Anders: kies de toon die bij deze aanslag nieuw is en waarvan de harmonischen het best kloppen.
         else m = (ana && ana.choose([y, ana.best])) ?? y ?? ana?.best;
+        if (m != null && !this.ok(m)) m = null; // geen noot uit het spel (bv. iemand die zingt)
+        // YIN hoort zeker een nieuwe toon die niet in het spel zit: dan telt een andere noot enkel als die zelf
+        // echt nieuw klinkt, en niet gewoon een ondertoon of buurnoot van die toon is (anders 'hoort' hij
+        // in een gezongen re' de sol een octaaf + kwint lager).
+        const foreign = ana && strictY != null && !yinOk && ana.newFrac(strictY) >= 0.3 ? strictY : null;
+        if (m != null && foreign != null && (Math.abs(foreign - m) <= 2 || ana.isOvertoneOf(foreign, m) || !ana.fundNew(m) || !ana.present(m))) m = null;
         if (m == null) {
           if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y, best: ana?.best, m: 'GEEN' });
           this.recentAttack = this.pending; this.pending = null; return;
@@ -520,12 +532,13 @@ export class DetectorCore {
         const fresh = ana && m != null ? +ana.newFrac(m).toFixed(2) : null;
         this.emit({ type: 'note', time: this.pending.time, midi: m, attack: true, strength: this.pending.strength, fresh });
         this.pending = null;
+        this.recentAttack = null; // een eerdere aanslag zonder toon is hiermee voorbij
       } else if (age > 0.4) {
         // Geen duidelijke toon gevonden: onthoud de aanslag, de stabiele toon kan nog volgen.
         this.recentAttack = this.pending;
         this.pending = null;
       }
-    } else if (this.stable.count >= 4 && rms > gate && (this.stable.midi !== this.current || this.recentAttack)) {
+    } else if (this.stable.count >= 4 && rms > gate && this.ok(this.stable.midi) && (this.stable.midi !== this.current || this.recentAttack)) {
       const m = this.stable.midi;
       const ra = this.recentAttack;
       this.recentAttack = null;
@@ -557,10 +570,12 @@ if (typeof registerProcessor === 'function') {
         super();
         this.core = new DetectorCore(sampleRate, (msg) => this.port.postMessage(msg));
         this.port.onmessage = (e) => {
-          const { sensitivity, latency, expect } = e.data || {};
+          const { sensitivity, latency, expect, allowed, minFreq } = e.data || {};
+          if (Array.isArray(allowed)) this.core.allowed = allowed.length ? new Set(allowed.filter((x) => Number.isInteger(x))) : null;
           if (Array.isArray(expect)) this.core.expect = expect.filter((x) => Number.isInteger(x));
           if (typeof sensitivity === 'number') this.core.sensitivity = sensitivity;
           if (typeof latency === 'number') this.core.latency = latency;
+          if (typeof minFreq === 'number') this.core.minFreq = minFreq;
         };
       }
       process(inputs) {

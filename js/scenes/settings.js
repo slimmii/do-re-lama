@@ -134,6 +134,8 @@ export class SettingsScene {
       R(62, (x, y, w) => ui.slider('s:sens', x, y, w, 62, 'Gevoeligheid', st.sens, -0.6, 1, 0.05, (v) => this.set('sens', v), { labelW: 170, fmt: sensLabel, valueW: 90, sub: 'hoort hij te veel of te weinig?' })),
       R(62, (x, y, w) => ui.slider('s:lat', x, y, w, 62, 'Vertraging', st.latency, 0, 400, 5, (v) => this.set('latency', v), { labelW: 170, fmt: (v) => `${v} ms`, sub: 'tijd tot de microfoon het hoort' })),
       R(this.calibH ?? 96, (x, y, w) => this.calibRow(x, y, w)),
+      R(70, (x, y, w) => this.tuneRow(x, y, w)),
+      R(58, (x, y, w) => ui.toggle('s:only', x, y, w, 58, 'Enkel noten uit het spel', st.onlyGameNotes, (v) => this.set('onlyGameNotes', v), { sub: 'negeert andere tonen, zoals iemand die zingt' })),
       R(58, (x, y, w) => ui.toggle('s:echo', x, y, w, 58, 'Geen koptelefoon', st.echo, (v) => { this.set('echo', v); mic.stop(); }, { sub: 'echo-onderdrukking aanzetten' })),
       R(58, (x, y, w) => ui.toggle('s:kb', x, y, w, 58, 'Spelen met het toetsenbord', st.keyboard, (v) => this.set('keyboard', v), { sub: 'zonder gitaar: A S D F … zijn de noten van laag naar hoog' })),
     ];
@@ -223,6 +225,15 @@ export class SettingsScene {
         this.set('micId', list[(i + 1) % list.length].id);
         mic.choose(S.settings.micId);
       } });
+  }
+
+  // Naar het stemspelletje met de lama.
+  tuneRow(x, y, w) {
+    const g = ui.g;
+    rr(g, x, y, w, 70, 14); g.fillStyle = 'rgba(255,255,255,.7)'; g.fill();
+    text(g, 'Gitaar stemmen', x + 16, y + 24, { size: 18, color: C.text, align: 'left' });
+    text(g, 'Een valse snaar hoort hij als een andere noot. De lama helpt je stemmen.', x + 16, y + 48, { size: 14, weight: 700, color: C.muted, align: 'left', maxW: w - 200 });
+    ui.button('s:tune', x + w - 172, y + 10, 160, 50, 'Stemmen', { icon: 'note', variant: 'pink', size: 18, sound: 'open', onClick: () => app.engine.push(app.scenes.tune()) });
   }
 
   calibRow(x, y, w) {

@@ -34,6 +34,10 @@ Vercel herkent Vite vanzelf (build `npm run build`, output `dist`). Vercel serve
   Je mag zoveel huisdieren tegelijk hebben als je wil: ze wandelen rond, elk op hun eigen tempo; de goudvis staat in
   zijn bokaal op het tafeltje. Klik op de lama om te springen, op een huisdier voor hartjes, op een gitaar voor een akkoordje. Met *Slapen* (of Z) gaat het licht uit:
   de lama wandelt naar haar bed, springt erin en slaapt onder het dekentje; met *Opstaan* springt ze eruit.
+- **Gitaar stemmen** (boomhut › *Spelen*, of bij Instellingen › Microfoon): tokkel een losse snaar en de
+  regenboogmeter toont of ze te laag of te hoog klinkt; hou ze juist tot de ster vol is. De lama is blij (hartjes in de
+  boomhut) zolang de snaren onlangs gestemd zijn: een snaar blijft een halve dag vers en zakt dan in drie dagen weg.
+  Een droevige lama loopt trager onder een regenwolkje. Alle snaren juist: feest, en hoogstens eens per dag 3 munten.
 
 Speel de noot terwijl ze in de **blauwe balk** staat. Fout of te laat: de lama botst en verliest een leven.
 Een **munt** in de lucht? Speel die noot en de lama vangt ze. Met munten koop je in de **winkel** hoedjes,

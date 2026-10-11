@@ -1,6 +1,6 @@
 // Gedeelde stukjes interface voor de scènes.
 import { ui } from '../ui.js';
-import { C, text, title, panel, ribbon, pill, star, rr, ease, clamp } from '../draw.js';
+import { C, text, title, panel, ribbon, pill, star, rr, ease, clamp, wrap, measure } from '../draw.js';
 import { app } from '../app.js';
 import { S } from '../store.js';
 import { totalStars } from '../lama-journey.js';
@@ -79,3 +79,48 @@ export function circleImage(g, img, cx, cy, r, crop = 0.5) {
 }
 
 export { title, text };
+
+// Tekstballon met een staartje naar (tx, ty) (bv. het hoofd van de lama); blijft tussen x0 en x1.
+export function speech(g, str, tx, ty, o = {}) {
+  const { maxW = 300, size = 16, x0 = 8, x1 = 10000, alpha = 1 } = o;
+  const lines = wrap(g, str, maxW - 28, size, 800);
+  const lh = size * 1.3;
+  const w = Math.min(maxW, Math.max(...lines.map((l) => measure(g, l, size, 800))) + 30), h = lines.length * lh + 18;
+  const x = clamp(tx - w * 0.3, x0, x1 - w), y = ty - h - 16;
+  const sx = clamp(tx, x + 22, x + w - 22);
+  g.save();
+  g.globalAlpha *= alpha;
+  // één gesloten vorm (ballon + staartje), zodat de rand nergens kruist
+  const r = 16, b = y + h;
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, b, r);
+  g.arcTo(x + w, b, x, b, r);
+  g.lineTo(sx + 10, b); g.lineTo(sx, b + 13); g.lineTo(sx - 12, b);
+  g.arcTo(x, b, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+  g.fillStyle = '#fff'; g.fill();
+  g.lineWidth = 3; g.lineJoin = 'round'; g.strokeStyle = C.ink; g.stroke();
+  lines.forEach((l, i) => text(g, l, x + 15, y + 9 + lh / 2 + i * lh, { size, weight: 800, color: C.text, align: 'left' }));
+  g.restore();
+}
+
+// Rij hartjes die zich vullen (frac 0..1), bv. hoe blij de lama is.
+export function heartsMeter(g, x, y, frac, o = {}) {
+  const { n = 5, s = 22, gap = 4 } = o;
+  const img = app.A.img.heart;
+  for (let i = 0; i < n; i++) {
+    const f = clamp(frac * n - i, 0, 1), hx = x + i * (s + gap);
+    g.save(); g.globalAlpha *= 0.25;
+    g.drawImage(img, hx, y, s, s * 1.08);
+    g.restore();
+    if (f > 0) {
+      g.save();
+      g.beginPath(); g.rect(hx, y, s * f, s * 1.1); g.clip();
+      g.drawImage(img, hx, y, s, s * 1.08);
+      g.restore();
+    }
+  }
+  return n * (s + gap) - gap;
+}

@@ -17,6 +17,8 @@ import { PauseScene } from './scenes/pause.js';
 import { SettingsScene } from './scenes/settings.js';
 import { ShopScene } from './scenes/shop.js';
 import { TreehouseScene } from './scenes/treehouse.js';
+import { TuneScene } from './scenes/tune.js';
+import { GamesScene } from './scenes/games.js';
 
 const engine = new Engine(document.getElementById('game'));
 app.engine = engine;
@@ -29,6 +31,8 @@ app.scenes = {
   settings: (o) => new SettingsScene(o),
   shop: (o) => new ShopScene(o),
   treehouse: () => new TreehouseScene(),
+  tune: () => new TuneScene(),
+  games: () => new GamesScene(),
 };
 ui.onSound = (name) => { if (name !== 'silent') sfx(name); };
 

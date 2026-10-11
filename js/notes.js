@@ -35,6 +35,9 @@ export const writtenMidi = (name) => parseNote(name).midi;
 // Gitaar klinkt een octaaf lager dan genoteerd.
 export const soundingMidi = (name) => writtenMidi(name) - 12;
 
+// Klinkende midi-noten die ergens in het spel voorkomen (C3 .. A4).
+export const GAME_MIDIS = [...new Set(Object.keys(FRETBOARD).map(soundingMidi))].sort((a, b) => a - b);
+
 export const solfege = (midi) => SOLFEGE[((midi % 12) + 12) % 12];
 export const solfegeOf = (name) => solfege(writtenMidi(name));
 

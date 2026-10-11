@@ -2,6 +2,7 @@
 // Tijdens het gitaarspel zijn er geen geluidjes (de microfoon zou ze voor noten kunnen houden), enkel de metronoom.
 import { PitchDetector } from './pitch.js';
 import { S } from './store.js';
+import { GAME_MIDIS } from './notes.js';
 
 let ctx = null;
 export function audioCtx() {
@@ -97,15 +98,18 @@ export function sfx(name) {
 }
 
 // ---------- microfoon ----------
+const TUNE_MIN_HZ = 72; // stemmodus: ruim onder de lage mi (82 Hz), zodat ook een te lage snaar gehoord wordt
 // mic.listen(fn) bepaalt wie de herkende noten krijgt. Ook het toetsenbord (S.settings.keyboard) stuurt
 // noten via mic.emit, alsof ze van de gitaar kwamen.
 export const mic = {
   detector: null,
   level: 0, midi: null, cents: 0, heardAt: 0,
+  freq: null, freqAt: 0, // nauwkeurige toonhoogte (Hz) van een duidelijke toon, voor het stemmen
   error: null,
   label: '', // naam van de microfoon die nu luistert
   devices: [], // [{id, label}] alle microfoons; id '' = standaard van de browser
   listener: null,
+  tuning: false, // stemmodus: de meting zoekt ook lage tonen (lage mi, 82 Hz)
   listen(fn) { this.listener = fn; },
   emit(ev) { this.listener?.(ev); },
   get running() { return !!this.detector?.running; },
@@ -123,9 +127,11 @@ export const mic = {
     d.latency = S.settings.latency / 1000;
     d.echoCancellation = S.settings.echo;
     d.deviceId = S.settings.micId;
+    d.setAllowed(S.settings.onlyGameNotes ? GAME_MIDIS : []);
+    d.setMinFreq(this.tuning ? TUNE_MIN_HZ : 90);
     d.onFrame = (f) => {
       this.level = f.level;
-      if (f.midi != null) { this.midi = f.midi; this.cents = f.cents; this.heardAt = performance.now(); }
+      if (f.midi != null) { this.midi = f.midi; this.cents = f.cents; this.heardAt = this.freqAt = performance.now(); this.freq = f.freq; }
       else if (f.level < 0.05) this.midi = null;
     };
     d.onNote = (ev) => this.emit(ev);
@@ -157,11 +163,13 @@ export const mic = {
     if (this.detector) { this.stop(); await this.ensure(); }
   },
   setExpect(midis) { this.detector?.setExpect(midis); },
+  setTuning(on) { this.tuning = on; this.detector?.setMinFreq(on ? TUNE_MIN_HZ : 90); },
   applySettings() {
     const d = this.detector;
     if (!d) return;
     d.sensitivity = S.settings.sens;
     d.latency = S.settings.latency / 1000;
+    d.setAllowed(S.settings.onlyGameNotes ? GAME_MIDIS : []);
   },
 };
 
@@ -178,6 +186,7 @@ export async function calibrate(onStatus) {
   const c = audioCtx();
   const prev = mic.listener;
   mic.detector.latency = 0;
+  mic.detector.setAllowed(OPEN_STRINGS); // de lage snaren E A D horen niet bij de spelnoten
   mic.setExpect([]);
   const spb = 60 / CALIB_BPM;
   const t0 = c.currentTime + 0.6;

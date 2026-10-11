@@ -7,12 +7,59 @@ import { app } from '../app.js';
 import { S } from '../store.js';
 import { drawLlama, drawParticle } from '../lama-style.js';
 import { drawRoom, drawFoliage, fitRoom, furnished, placedIds, restingPose, sleepImage, HOUSE_ITEM } from '../treehouse.js';
-import { topBar } from './common.js';
+import { topBar, speech, heartsMeter } from './common.js';
+import { happiness, isSad } from '../tuning.js';
 
 const FLOOR = 0.955; // waar de pootjes van de lama staan (breuk van de kamer)
 const WALK = [0.42, 0.62]; // tussen het bed en het tafeltje
 const PET_WALK = [0.15, 0.86]; // de huisdieren lopen vooraan, over de hele vloer
 const BED_SIDE = 0.46;
+
+/**
+ * De lama in de kamer R tekenen. st: {lx (plaats, breuk), dir, walking, hop (s sinds de sprong, < 0: niet),
+ * t, pace (hoe snel de pootjes gaan)}. Geeft het klikgebied en de plek van het hoofd [x, y, schaal] terug.
+ */
+export function drawRoomLama(g, R, st) {
+  const A = app.A, m = A.meta, t = st.t;
+  let sheet = 'walk', i = st.walking ? Math.floor(t * m.walk.fps * (st.pace ?? 0.7)) % m.walk.frames : 0, lift = 0;
+  if (st.hop >= 0) {
+    const u = Math.min(1, st.hop / 0.8), j = m.jump;
+    sheet = 'jump';
+    i = Math.round(u < 0.5 ? j.takeoff + (u / 0.5) * (j.apex - j.takeoff) : j.apex + ((u - 0.5) / 0.5) * (j.land - j.apex));
+    lift = R.h * 0.12 * 4 * u * (1 - u);
+  }
+  const s = (R.h * 0.3) / m.standH, sm = m[sheet];
+  const cx = R.x + st.lx * R.w, by = R.y + FLOOR * R.h;
+  g.fillStyle = 'rgba(40,20,10,.18)';
+  g.beginPath(); g.ellipse(cx, by, 40 * s - lift * 0.1, 7 * s, 0, 0, Math.PI * 2); g.fill();
+  g.save();
+  if (st.dir < 0) { g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0); }
+  const out = { ...S.wallet.outfit };
+  delete out.trail;
+  drawLlama(g, A, sheet, i, cx - sm.anchorX * s, by + 3 * s - lift - sm.cellH * s, s, out, t);
+  g.restore();
+  const top = by - lift - sm.cellH * s;
+  return { rect: { x: cx - 50 * s, y: top + 20 * s, w: 100 * s, h: sm.cellH * s - 20 * s }, head: [cx + st.dir * 30 * s, top + 30 * s, s] };
+}
+
+// Grijs regenwolkje (boven het hoofd van een droevige lama).
+export function rainCloud(g, x, y, s, t) {
+  g.save();
+  g.strokeStyle = 'rgba(120,170,230,.85)'; g.lineWidth = 2.5 * s; g.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const k = (t * 1.6 + i * 0.27) % 1, dx = (i - 1.5) * 9 * s;
+    g.globalAlpha = 1 - k;
+    g.beginPath(); g.moveTo(x + dx, y + 8 * s + k * 26 * s); g.lineTo(x + dx - 2 * s, y + 14 * s + k * 26 * s); g.stroke();
+  }
+  g.globalAlpha = 1;
+  g.fillStyle = '#b9b3c6'; g.strokeStyle = C.ink; g.lineWidth = 2.5;
+  g.beginPath();
+  g.arc(x - 14 * s, y + 2 * s, 9 * s, Math.PI * 0.5, Math.PI * 1.5);
+  g.arc(x - 4 * s, y - 6 * s, 11 * s, Math.PI, Math.PI * 1.9);
+  g.arc(x + 11 * s, y - 1 * s, 9 * s, Math.PI * 1.3, Math.PI * 0.5);
+  g.closePath(); g.fill(); g.stroke();
+  g.restore();
+}
 
 export class TreehouseScene {
   constructor() {
@@ -26,12 +73,21 @@ export class TreehouseScene {
     this.zT = 0;
     this.swing = {}; // id → hoe hard een gitaar nog schommelt
     this.pets = {}; // id → {x, dir, target, wait, step, hop}: de rondwandelende huisdieren
+    this.say = null; // {text, life}: tekstballon bij de lama
   }
+
+  enter() { this.happy = happiness(S.tune); this.sad = isSad(this.happy); }
+  resumeFocus() { this.enter(); } // terug van het stemmen: opnieuw berekenen
+
+  tune() { app.engine.push(app.scenes.tune()); }
+  games() { app.engine.push(app.scenes.games()); }
 
   back() { app.engine.go(app.scenes.title()); }
 
   key(e) {
     if (e.code === 'KeyZ') { this.toggleSleep(); return true; }
+    if (e.code === 'KeyS') { this.tune(); return true; }
+    if (e.code === 'KeyG') { this.games(); return true; }
     return false;
   }
 
@@ -53,6 +109,7 @@ export class TreehouseScene {
 
   jump() {
     if (this.sleep || this.hop >= 0) return;
+    if (this.sad) { this.say = { text: 'Mijn gitaar klinkt vals… Stem je ze voor mij?', life: 3.5 }; ui.sound('back'); return; }
     this.hop = 0;
     ui.sound('jump');
   }
@@ -97,7 +154,7 @@ export class TreehouseScene {
           }
         } else {
           this.dir = Math.sign(d);
-          this.lx += this.dir * Math.min(Math.abs(d), 0.07 * dt);
+          this.lx += this.dir * Math.min(Math.abs(d), (this.sad ? 0.04 : 0.07) * dt);
         }
       }
     }
@@ -111,6 +168,7 @@ export class TreehouseScene {
         this.parts.push({ kind: 'note', text: 'z', color: '#fff', x: hx, y: hy, vx: 10 + Math.random() * 10, vy: -26, g: 0, life: 2, s: 14 * s + Math.random() * 6 });
       }
     }
+    if (this.say && (this.say.life -= dt) <= 0) this.say = null;
     for (const p of this.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.g ?? 0) * dt; p.life -= dt; }
     this.parts = this.parts.filter((p) => p.life > 0);
   }
@@ -150,29 +208,10 @@ export class TreehouseScene {
 
   drawLama(g, R) {
     if (this.inBed) { this.lamaRect = null; return; } // dan zit ze in het beeld van het bed
-    const A = app.A, m = A.meta, t = this.t;
     const walking = this.target != null && this.hop < 0;
-    let sheet = 'walk', i = walking ? Math.floor(t * m.walk.fps * 0.7) % m.walk.frames : 0, lift = 0;
-    if (this.hop >= 0) {
-      const u = this.hop / 0.8, j = m.jump;
-      sheet = 'jump';
-      i = Math.round(u < 0.5 ? j.takeoff + (u / 0.5) * (j.apex - j.takeoff) : j.apex + ((u - 0.5) / 0.5) * (j.land - j.apex));
-      lift = R.h * 0.12 * 4 * u * (1 - u);
-    }
-    const s = (R.h * 0.3) / m.standH, sm = m[sheet];
-    const cx = R.x + this.lx * R.w, by = R.y + FLOOR * R.h;
-    g.fillStyle = 'rgba(40,20,10,.18)';
-    g.beginPath(); g.ellipse(cx, by, 40 * s - lift * 0.1, 7 * s, 0, 0, Math.PI * 2); g.fill();
-    g.save();
-    if (this.dir < 0) { g.translate(cx, 0); g.scale(-1, 1); g.translate(-cx, 0); }
-    const out = { ...S.wallet.outfit };
-    delete out.trail;
-    drawLlama(g, A, sheet, i, cx - sm.anchorX * s, by + 3 * s - lift - sm.cellH * s, s, out, t);
-    g.restore();
-    // klikgebied en de plek van het hoofd (voor de zzz)
-    const top = by - lift - sm.cellH * s;
-    this.lamaRect = { x: cx - 50 * s, y: top + 20 * s, w: 100 * s, h: sm.cellH * s - 20 * s };
-    this.lamaHead = [cx + this.dir * 30 * s, top + 30 * s, s];
+    const r = drawRoomLama(g, R, { lx: this.lx, dir: this.dir, walking, hop: this.hop, t: this.t, pace: this.sad ? 0.45 : 0.7 });
+    this.lamaRect = r.rect;
+    this.lamaHead = r.head;
   }
 
   draw(g, VW, VH) {
@@ -190,6 +229,11 @@ export class TreehouseScene {
       pose: (it) => this.petPose(it), swing: (it) => this.swing[it.id] ?? 0,
       onItem: (it, x, y, w, h) => { if (it.slot === 'dier' || it.slot === 'gitaar') rects.push({ id: it.id, slot: it.slot, x, y, w, h }); } });
     for (const p of this.parts) drawParticle(g, p, app.A.img);
+    if (this.sad && !this.sleep && this.lamaRect && this.lamaHead) rainCloud(g, this.lamaHead[0], this.lamaRect.y - 34 * this.lamaHead[2], 1.1 * this.lamaHead[2], t);
+    if (this.say && this.lamaHead) speech(g, this.say.text, this.lamaHead[0], (this.lamaRect ? this.lamaRect.y : this.lamaHead[1]) - (this.sad && !this.sleep ? 56 * this.lamaHead[2] : 6), { maxW: Math.min(320, R.w - 24), x0: R.x + 10, x1: R.x + R.w - 10, alpha: Math.min(1, this.say.life * 2) });
+    // hoe blij is de lama?
+    g.fillStyle = 'rgba(29,16,48,.5)'; g.beginPath(); g.roundRect(R.x + 10, R.y + 10, 158, 36, 18); g.fill();
+    heartsMeter(g, R.x + 22, R.y + 16, this.happy, { s: 22, gap: 6 });
     g.restore();
     g.beginPath(); g.roundRect(R.x, R.y, R.w, R.h, 14); g.lineWidth = 4; g.strokeStyle = C.ink; g.stroke();
 
@@ -200,10 +244,12 @@ export class TreehouseScene {
     topBar(g, VW, 'Lama-boomhut', () => this.back(), { color: C.green, dark: C.greenD });
 
     // knoppen onderaan
-    const bw = Math.min(250, (VW - 48) / 2), by = VH - 66;
-    ui.button('bh:shop', VW / 2 - bw - 8, by, bw, 54, 'Inrichten', { icon: 'bag', variant: 'gold', sound: 'open',
+    const bw = Math.min(230, (VW - 64) / 3), by = VH - 66, bx = VW / 2 - bw * 1.5 - 16;
+    ui.button('bh:shop', bx, by, bw, 54, 'Inrichten', { icon: 'bag', variant: 'gold', sound: 'open',
       onClick: () => app.engine.push(app.scenes.shop({ section: 'house' })) });
-    ui.button('bh:sleep', VW / 2 + 8, by, bw, 54, this.sleep ? 'Opstaan' : 'Slapen', { icon: this.sleep ? 'star' : 'moon', variant: 'purple',
+    ui.button('bh:games', bx + bw + 16, by, bw, 54, 'Spelen', { icon: 'play', variant: 'pink', sound: 'open', badge: this.sad ? '!' : null,
+      onClick: () => this.games() });
+    ui.button('bh:sleep', bx + 2 * (bw + 16), by, bw, 54, this.sleep ? 'Opstaan' : 'Slapen', { icon: this.sleep ? 'star' : 'moon', variant: 'purple',
       onClick: () => this.toggleSleep(), sound: 'silent' });
 
     const empty = !S.house.owned.length;

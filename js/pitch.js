@@ -25,6 +25,19 @@ export class PitchDetector {
     this.node?.port.postMessage({ expect: midis });
   }
 
+  // Enkel deze klinkende midi-noten mogen als noot herkend worden; [] = alles.
+  setAllowed(midis) {
+    this._allowed = [...midis];
+    this.node?.port.postMessage({ allowed: this._allowed });
+  }
+
+  // Laagste toonhoogte die de meting zoekt. Standaard 90 Hz (de laagste spelnoot is 131 Hz); bij het stemmen
+  // lager voor de lage mi (82 Hz). Hoe lager, hoe groter de kans dat een noot een octaaf te laag geschat wordt.
+  setMinFreq(hz) {
+    this._minFreq = hz;
+    this.node?.port.postMessage({ minFreq: hz });
+  }
+
   async start() {
     if (this.running) return;
     await this.ctx.audioWorklet.addModule(new URL('./detector-worklet.js', import.meta.url));
@@ -39,7 +52,7 @@ export class PitchDetector {
     this.label = this.stream.getAudioTracks()[0]?.label || '';
     this.source = this.ctx.createMediaStreamSource(this.stream);
     this.node = new AudioWorkletNode(this.ctx, 'simisol-detector', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1, channelCountMode: 'explicit' });
-    this.node.port.postMessage({ sensitivity: this._sensitivity, latency: this._latency });
+    this.node.port.postMessage({ sensitivity: this._sensitivity, latency: this._latency, allowed: this._allowed || [], minFreq: this._minFreq || 90 });
     this.node.port.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'frame') this.onFrame?.(m);

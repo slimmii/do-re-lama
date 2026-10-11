@@ -23,6 +23,7 @@ const DEFAULTS = () => ({
     sens: 0.5,
     latency: 60,
     echo: false,
+    onlyGameNotes: true, // de microfoon negeert tonen die niet in het spel voorkomen (bv. zingen)
     micId: '', // gekozen microfoon (deviceId); '' = standaard van de browser
     keyboard: false, // spelen met het toetsenbord in plaats van de gitaar
     selection: [...DEFAULT_SELECTION], // noten bij vrij oefenen
@@ -31,6 +32,7 @@ const DEFAULTS = () => ({
   wallet: { coins: 0, owned: [], outfit: {}, imported: [] },
   house: { owned: [], placed: {} }, // de boomhut: gekochte spulletjes en wat waar staat
   journey: newJourney(),
+  tune: { at: {}, rewardAt: 0 }, // gitaar stemmen: wanneer elke snaar (klinkende midi) gestemd werd, laatste beloning
   intro: false, // uitleg al gezien
 });
 
@@ -46,6 +48,7 @@ export const S = {
   settings: { ...d.settings, ...raw.settings },
   wallet: { ...d.wallet, ...raw.wallet },
   house: { ...d.house, ...raw.house },
+  tune: { ...d.tune, ...raw.tune },
   journey: Object.assign(newJourney(), raw.journey),
 };
 delete S.runBest; // van Lama Run, die er niet meer is
