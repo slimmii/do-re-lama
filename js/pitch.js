@@ -7,6 +7,7 @@ export class PitchDetector {
     this.onNote = null; // ({time, midi, attack, strength})
     this.running = false;
     this.echoCancellation = false;
+    this.deviceId = ''; // '' = de standaardmicrofoon van de browser
     this._sensitivity = 0.5; // 0..1
     this._latency = 0.06; // seconden die we van een aanslag aftrekken
   }
@@ -27,9 +28,15 @@ export class PitchDetector {
   async start() {
     if (this.running) return;
     await this.ctx.audioWorklet.addModule(new URL('./detector-worklet.js', import.meta.url));
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: this.echoCancellation, noiseSuppression: false, autoGainControl: false },
-    });
+    const audio = { echoCancellation: this.echoCancellation, noiseSuppression: false, autoGainControl: false };
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: this.deviceId ? { ...audio, deviceId: { exact: this.deviceId } } : audio });
+    } catch (e) {
+      // gekozen microfoon is er niet meer (uitgetrokken): dan de standaardmicrofoon
+      if (!this.deviceId || !['OverconstrainedError', 'NotFoundError'].includes(e.name)) throw e;
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio });
+    }
+    this.label = this.stream.getAudioTracks()[0]?.label || '';
     this.source = this.ctx.createMediaStreamSource(this.stream);
     this.node = new AudioWorkletNode(this.ctx, 'simisol-detector', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1, channelCountMode: 'explicit' });
     this.node.port.postMessage({ sensitivity: this._sensitivity, latency: this._latency });

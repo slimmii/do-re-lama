@@ -39,6 +39,7 @@ export class SettingsScene {
       if (s) { e.preventDefault(); this.importText(s); }
     };
     addEventListener('paste', this.onPaste);
+    mic.refreshDevices();
   }
   leave() {
     removeEventListener('paste', this.onPaste);
@@ -129,6 +130,7 @@ export class SettingsScene {
     ];
     if (this.tab === 'mic') return [
       R(70, (x, y, w) => this.micRow(x, y, w)),
+      ...(st.keyboard ? [] : [R(70, (x, y, w) => this.deviceRow(x, y, w))]),
       R(62, (x, y, w) => ui.slider('s:sens', x, y, w, 62, 'Gevoeligheid', st.sens, -0.6, 1, 0.05, (v) => this.set('sens', v), { labelW: 170, fmt: sensLabel, valueW: 90, sub: 'hoort hij te veel of te weinig?' })),
       R(62, (x, y, w) => ui.slider('s:lat', x, y, w, 62, 'Vertraging', st.latency, 0, 400, 5, (v) => this.set('latency', v), { labelW: 170, fmt: (v) => `${v} ms`, sub: 'tijd tot de microfoon het hoort' })),
       R(this.calibH ?? 96, (x, y, w) => this.calibRow(x, y, w)),
@@ -202,6 +204,25 @@ export class SettingsScene {
     rr(g, x + 56, y + 40, (w - 200) * clamp(mic.level, 0, 1), 14, 7); g.fillStyle = C.green; g.fill();
     const recent = mic.midi != null && performance.now() - mic.heardAt < 700;
     title(g, recent ? solfege(mic.midi + 12) : '–', x + w - 70, y + 36, 32, recent ? '#7ee08a' : '#fff');
+  }
+
+  // Welke microfoon: de knop gaat de lijst rond.
+  deviceRow(x, y, w) {
+    const g = ui.g, list = mic.devices, id = S.settings.micId;
+    rr(g, x, y, w, 70, 14); g.fillStyle = 'rgba(255,255,255,.7)'; g.fill();
+    const cur = list.find((d) => d.id === id);
+    let name = cur?.label ?? 'Standaard van de browser';
+    if (!id && mic.label) name = `Standaard: ${mic.label}`;
+    else if (id && !cur) name = 'Niet gevonden, ik gebruik de standaard';
+    text(g, 'Welke microfoon?', x + 16, y + 24, { size: 18, color: C.text, align: 'left' });
+    while (name.length > 4 && ui.measure(name, 14, 700) > w - 200) name = name.slice(0, -2) + '…';
+    text(g, name, x + 16, y + 48, { size: 14, weight: 700, color: id && !cur ? C.bad : C.muted, align: 'left' });
+    ui.button('s:dev', x + w - 172, y + 10, 160, 50, 'Andere', { icon: 'next', variant: 'blue', size: 18, disabled: list.length < 2, sound: 'tick',
+      onClick: () => {
+        const i = list.findIndex((d) => d.id === id);
+        this.set('micId', list[(i + 1) % list.length].id);
+        mic.choose(S.settings.micId);
+      } });
   }
 
   calibRow(x, y, w) {

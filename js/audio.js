@@ -103,6 +103,8 @@ export const mic = {
   detector: null,
   level: 0, midi: null, cents: 0, heardAt: 0,
   error: null,
+  label: '', // naam van de microfoon die nu luistert
+  devices: [], // [{id, label}] alle microfoons; id '' = standaard van de browser
   listener: null,
   listen(fn) { this.listener = fn; },
   emit(ev) { this.listener?.(ev); },
@@ -120,6 +122,7 @@ export const mic = {
     d.sensitivity = S.settings.sens;
     d.latency = S.settings.latency / 1000;
     d.echoCancellation = S.settings.echo;
+    d.deviceId = S.settings.micId;
     d.onFrame = (f) => {
       this.level = f.level;
       if (f.midi != null) { this.midi = f.midi; this.cents = f.cents; this.heardAt = performance.now(); }
@@ -129,14 +132,30 @@ export const mic = {
     try {
       await d.start();
       this.detector = d;
+      this.label = d.label;
       this.error = null;
+      this.refreshDevices(); // na de toestemming kent de browser ook de namen
       return true;
     } catch (e) {
       this.error = 'Ik kan de microfoon niet gebruiken. Geef toestemming in je browser (klik op het slotje naast het adres).';
       return false;
     }
   },
-  stop() { this.detector?.stop(); this.detector = null; this.level = 0; this.midi = null; },
+  stop() { this.detector?.stop(); this.detector = null; this.level = 0; this.midi = null; this.label = ''; },
+
+  // Lijst van microfoons. Zonder toestemming geeft de browser geen namen, dan nummeren we ze.
+  async refreshDevices() {
+    let all = [];
+    try { all = await navigator.mediaDevices.enumerateDevices(); } catch {}
+    // 'default' en 'communications' zijn verwijzingen van Chrome naar een echte microfoon uit de lijst
+    const inputs = all.filter((x) => x.kind === 'audioinput' && x.deviceId && !['default', 'communications'].includes(x.deviceId));
+    this.devices = [{ id: '', label: 'Standaard van de browser' }, ...inputs.map((x, i) => ({ id: x.deviceId, label: x.label || `Microfoon ${i + 1}` }))];
+  },
+  // Kies een andere microfoon; luisterde hij al, dan meteen herstarten met de nieuwe.
+  async choose(id) {
+    S.settings.micId = id;
+    if (this.detector) { this.stop(); await this.ensure(); }
+  },
   setExpect(midis) { this.detector?.setExpect(midis); },
   applySettings() {
     const d = this.detector;
@@ -145,6 +164,8 @@ export const mic = {
     d.latency = S.settings.latency / 1000;
   },
 };
+
+navigator.mediaDevices?.addEventListener?.('devicechange', () => mic.refreshDevices());
 
 // ---------- microfoonvertraging meten ----------
 // 4 aftelklikken en dan 8 klikken; bij elke klik tokkel je een losse snaar. Het mediane verschil tussen klik

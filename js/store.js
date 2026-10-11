@@ -23,6 +23,7 @@ const DEFAULTS = () => ({
     sens: 0.5,
     latency: 60,
     echo: false,
+    micId: '', // gekozen microfoon (deviceId); '' = standaard van de browser
     keyboard: false, // spelen met het toetsenbord in plaats van de gitaar
     selection: [...DEFAULT_SELECTION], // noten bij vrij oefenen
   },
