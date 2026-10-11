@@ -1,4 +1,4 @@
-# Lama Reis
+# Do Re Lama
 
 Een volledig-scherm gitaarspel: speel de noot op je gitaar en de lama springt over het monster.
 Afgesplitst uit de lama-modus van de [Simisol-notentrainer](../simisol). Alles (ook de notenbalk,
@@ -22,12 +22,16 @@ en geef toestemming voor de microfoon. De microfoon werkt enkel via `http://loca
   Bereikte landschappen kan je opnieuw spelen op de kaart.
 - **Vrij oefenen**: kies zelf je noten (bv. wat de leerkracht vraagt). Alle bereikte landschappen wisselen af.
   Minder munten, geen poortwachters; sterren tellen vanaf 3 noten.
-- **Lama Run**: zonder gitaar. Spatie / pijltje omhoog / tik om te springen, dubbele sprong in de lucht,
-  spring óp een monster om het weg te krijgen.
+- **Lama-boomhut**: de kamer waar de lama uitrust. In het begin staan er enkel een bedje en een tafeltje; in de
+  winkel (afdeling *Boomhut*) koop je bedovertrekjes, posters, een spiegel, matjes, stoelen, bloemen,
+  gitaren (twee haakjes aan de muur, dus twee tegelijk) en huisdiertjes.
+  Je mag zoveel huisdieren tegelijk hebben als je wil: ze wandelen rond, elk op hun eigen tempo; de goudvis staat in
+  zijn bokaal op het tafeltje. Klik op de lama om te springen, op een huisdier voor hartjes, op een gitaar voor een akkoordje. Met *Slapen* (of Z) gaat het licht uit:
+  de lama wandelt naar haar bed, springt erin en slaapt onder het dekentje; met *Opstaan* springt ze eruit.
 
 Speel de noot terwijl ze in de **blauwe balk** staat. Fout of te laat: de lama botst en verliest een leven.
 Een **munt** in de lucht? Speel die noot en de lama vangt ze. Met munten koop je in de **winkel** hoedjes,
-brillen, gitaren, vachtkleuren en sporen; met sterren (per noot, voor hoe vaak je ze juist speelt) krijg je
+brillen, gitaren, vachtkleuren en sporen, en spulletjes voor de boomhut; met sterren (per noot, voor hoe vaak je ze juist speelt) krijg je
 speciale spulletjes.
 
 ## Toetsen
@@ -47,10 +51,10 @@ Levens (1–10 of onsterfelijk), snelheid, hoe streng op de maat, grote notennaa
 metronoom en volume, microfoongevoeligheid, microfoonvertraging (met **meten**), echo-onderdrukking,
 spelen met het toetsenbord, geluidjes, volledig scherm.
 
-**Gegevens**: met *Code maken* / *Code plakken* zet je munten, spulletjes en je reis over naar een ander
+**Gegevens**: met *Code maken* / *Code plakken* zet je munten, spulletjes, de boomhut en je reis over naar een ander
 toestel. De codes (`LAMA-…`) zijn dezelfde als in Simisol, dus je kan je lama ook van daar overhalen.
 
-Alles wordt bewaard in de browser (`localStorage`, sleutel `lama-reis:save`). Met `?test` achter de url
+Alles wordt bewaard in de browser (`localStorage`, sleutel `lama-reis:save`: de oude naam, zodat bewaarde spelletjes blijven werken). Met `?test` achter de url
 is alles van jou en wordt niets bewaard.
 
 ## Code
@@ -59,7 +63,12 @@ is alles van jou en wordt niets bewaard.
 - `js/ui.js`: knoppen, schakelaars, schuifregelaars, schuifgebieden, toetsenbordnavigatie (op het canvas)
 - `js/draw.js`: kleuren, tekst, panelen, vector-iconen
 - `js/game.js`: het lama-spel (uit Simisol, nu met de notenbalk op het canvas: `js/staff.js`)
-- `js/scenes/`: laadscherm, titel, reis, vrij oefenen, spel, pauze, instellingen, winkel, Lama Run
+- `js/scenes/`: laadscherm, titel, reis, vrij oefenen, spel, pauze, instellingen, winkel, boomhut
+- `js/treehouse.js`: de boomhut: plekken in de kamer, de spulletjes en het tekenen. **Iets nieuws toevoegen**:
+  zet een beeld met doorzichtige achtergrond in `img/lama/boomhut/<id>.webp` en voeg één regel toe aan
+  `HOUSE_ITEMS`. Een nieuw bed heeft ook een `<id>_slaap.webp` nodig (hetzelfde bed met de slapende lama erin,
+  even groot); zonder dat beeld slaapt de lama rechtop naast het bed. Een nieuwe soort (bv. lampen) is een extra plek in `HOUSE_SLOTS`; de winkel krijgt er
+  vanzelf een tabblad bij. De beelden zijn gemaakt met OpenArt (Nano Banana 2) op magenta en uitgeknipt.
 - Uit Simisol overgenomen: `notes.js`, `pitch.js` + `detector-worklet.js` (toonhoogteherkenning),
   `lama-style.js` (lama + winkelspulletjes), `lama-world.js` (landschappen), `lama-journey.js` (de reis)
 - `img/lama/`: de beelden; de bronbestanden en scripts om ze te maken staan nog in `simisol/art` en `simisol/tools`

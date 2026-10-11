@@ -3,5 +3,5 @@ export const app = {
   engine: null,
   A: null, // lama-beelden en -gegevens (loadLlama)
   backdrop: null,
-  scenes: {}, // fabrieken: title(), journey(), free(), play(opts), runner(), settings(), shop(), pause(opts)
+  scenes: {}, // fabrieken: title(), journey(), free(), play(opts), treehouse(), settings(), shop(opts), pause(opts)
 };

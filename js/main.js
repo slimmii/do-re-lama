@@ -1,4 +1,4 @@
-// Lama Reis: opstarten. Laadt alles, maakt de motor en de scènes.
+// Do Re Lama: opstarten. Laadt alles, maakt de motor en de scènes.
 import { Engine, toggleFullscreen } from './engine.js';
 import { ui } from './ui.js';
 import { app } from './app.js';
@@ -7,6 +7,7 @@ import { S } from './store.js';
 import { loadLlama } from './lama-style.js';
 import { preloadWorld } from './lama-world.js';
 import { Backdrop } from './backdrop.js';
+import { loadHouse } from './treehouse.js';
 import { BootScene } from './scenes/boot.js';
 import { TitleScene } from './scenes/title.js';
 import { JourneyScene } from './scenes/journey.js';
@@ -15,7 +16,7 @@ import { PlayScene } from './scenes/play.js';
 import { PauseScene } from './scenes/pause.js';
 import { SettingsScene } from './scenes/settings.js';
 import { ShopScene } from './scenes/shop.js';
-import { RunnerScene } from './scenes/runner.js';
+import { TreehouseScene } from './scenes/treehouse.js';
 
 const engine = new Engine(document.getElementById('game'));
 app.engine = engine;
@@ -26,8 +27,8 @@ app.scenes = {
   play: (o) => new PlayScene(o),
   pause: (o) => new PauseScene(o),
   settings: (o) => new SettingsScene(o),
-  shop: () => new ShopScene(),
-  runner: () => new RunnerScene(),
+  shop: (o) => new ShopScene(o),
+  treehouse: () => new TreehouseScene(),
 };
 ui.onSound = (name) => { if (name !== 'silent') sfx(name); };
 
@@ -36,12 +37,13 @@ engine.keyHandlers.push((e) => { if (e.code === 'KeyF') { toggleFullscreen(); re
 
 async function load(progress) {
   let done = 0;
-  const total = 11;
+  const total = 12;
   const step = () => progress(++done / total);
   await Promise.all([
     document.fonts.load('900 20px Nunito').then(step, step),
     loadLlama().then((A) => { app.A = A; step(); }),
     preloadWorld(() => step()),
+    loadHouse().then(step, step),
   ]);
   app.backdrop = new Backdrop(app.A);
   await app.backdrop.ready;

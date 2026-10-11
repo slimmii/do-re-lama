@@ -1,4 +1,4 @@
-// Het logo: LAMA REIS in dikke, dansende letters.
+// Het logo: de naam van het spel (DO RE LAMA) in dikke, dansende letters.
 import { C, FONT, text } from '../draw.js';
 
 // Elke letter wordt één keer getekend (rand, schaduw, verloop, glans) en daarna enkel nog gekopieerd.
@@ -57,9 +57,12 @@ function word(g, str, cx, y, size, t, phase, colors) {
   return total;
 }
 
+// De twee regels van het logo: groot bovenaan, kleiner eronder.
+export const LOGO = { top: 'DO RE', bottom: 'LAMA' };
+
 export function drawLogo(g, cx, cy, s, t, sub = true) {
-  word(g, 'LAMA', cx, cy - 30 * s, 92 * s, t, 0, ['#fffbe6', '#ffe27a', '#f6b13a']);
-  word(g, 'REIS', cx + 6 * s, cy + 46 * s, 62 * s, t, 2, ['#ffe1ee', '#ff8fb8', '#e8558c']);
+  word(g, LOGO.top, cx, cy - 30 * s, 92 * s, t, 0, ['#fffbe6', '#ffe27a', '#f6b13a']);
+  word(g, LOGO.bottom, cx + 6 * s, cy + 46 * s, 62 * s, t, 2, ['#ffe1ee', '#ff8fb8', '#e8558c']);
   // muzieknootjes rond het logo
   for (let i = 0; i < 3; i++) {
     const a = t * 0.9 + i * 2.1;

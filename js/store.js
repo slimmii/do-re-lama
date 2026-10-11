@@ -1,6 +1,7 @@
 // Alles wat bewaard wordt: instellingen, munten en spulletjes, de reis en de records.
 import { newJourney } from './lama-journey.js';
 import { ITEMS } from './lama-style.js';
+import { HOUSE_ITEMS, HOUSE_SLOTS } from './treehouse.js';
 import { DEFAULT_SELECTION } from './notes.js';
 
 const KEY = 'lama-reis:save';
@@ -26,8 +27,8 @@ const DEFAULTS = () => ({
     selection: [...DEFAULT_SELECTION], // noten bij vrij oefenen
   },
   best: {}, // record per spelvorm/combinatie van noten
-  runBest: 0, // record van Lama Run
   wallet: { coins: 0, owned: [], outfit: {}, imported: [] },
+  house: { owned: [], placed: {} }, // de boomhut: gekochte spulletjes en wat waar staat
   journey: newJourney(),
   intro: false, // uitleg al gezien
 });
@@ -43,11 +44,16 @@ export const S = {
   ...raw,
   settings: { ...d.settings, ...raw.settings },
   wallet: { ...d.wallet, ...raw.wallet },
+  house: { ...d.house, ...raw.house },
   journey: Object.assign(newJourney(), raw.journey),
 };
+delete S.runBest; // van Lama Run, die er niet meer is
+// plekken waar meer dingen mogen staan (huisdieren) bewaren een lijst; vroeger was dat één id
+for (const s of HOUSE_SLOTS) if (s.multi && S.house.placed[s.id] != null && !Array.isArray(S.house.placed[s.id])) S.house.placed[s.id] = [S.house.placed[s.id]];
 if (S.journey.at == null || S.journey.at > S.journey.stage) S.journey.at = S.journey.stage;
 
 if (TEST) S.wallet = { coins: 50, owned: ITEMS.map((i) => i.id), outfit: { ...S.wallet.outfit }, imported: [] };
+if (TEST) S.house = { owned: HOUSE_ITEMS.map((i) => i.id), placed: { ...S.house.placed } };
 
 let timer = 0;
 export function persist(now = false) {

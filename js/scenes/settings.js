@@ -57,7 +57,7 @@ export class SettingsScene {
 
   // ---------- gegevens ----------
   async makeCode() {
-    this.code = exportCode(S.wallet, S.journey);
+    this.code = exportCode(S.wallet, S.journey, S.house);
     try { await navigator.clipboard.writeText(this.code); this.msg = { text: 'Code gekopieerd! Plak ze op het andere toestel bij “Code plakken”.', ok: true }; }
     catch { this.msg = { text: 'Kopiëren lukte niet automatisch. Neem de code hieronder over.', ok: false }; }
   }
@@ -72,7 +72,7 @@ export class SettingsScene {
   }
   importText(s) {
     try {
-      const r = importCode(S.wallet, s.trim(), S.journey);
+      const r = importCode(S.wallet, s.trim(), S.journey, S.house);
       persist(true);
       this.msg = { text: `Gelukt! ${r.added} ${r.added === 1 ? 'nieuw spulletje' : 'nieuwe spulletjes'}${r.gained ? `, ${r.gained} munten erbij` : ''}${r.stages > 0 ? ` en ${r.stages} ${r.stages === 1 ? 'landschap' : 'landschappen'} verder op de reis` : ''}.`, ok: true };
       ui.sound('buy');
@@ -138,7 +138,7 @@ export class SettingsScene {
     if (this.tab === 'av') return [
       R(58, (x, y, w) => ui.toggle('s:metro2', x, y, w, 58, 'Metronoom', st.metro, (v) => this.set('metro', v), { sub: 'tikken tijdens het spel' })),
       R(62, (x, y, w) => ui.slider('s:mvol', x, y, w, 62, 'Volume metronoom', st.metroVol, 0, 1, 0.05, (v) => this.set('metroVol', v), { labelW: 190, fmt: (v) => `${Math.round(v * 100)}%`, color: C.green })),
-      R(58, (x, y, w) => ui.toggle('s:sfx', x, y, w, 58, 'Geluidjes', st.sfx, (v) => this.set('sfx', v), { sub: 'in de menu’s en in Lama Run (niet tijdens het gitaarspel)' })),
+      R(58, (x, y, w) => ui.toggle('s:sfx', x, y, w, 58, 'Geluidjes', st.sfx, (v) => this.set('sfx', v), { sub: 'in de menu’s en in de boomhut (niet tijdens het gitaarspel)' })),
       ...(canFullscreen() ? [R(58, (x, y, w) => ui.toggle('s:full', x, y, w, 58, 'Volledig scherm', isFullscreen(), () => toggleFullscreen(), { sub: 'of druk op F' }))] : []),
     ];
     // gegevens

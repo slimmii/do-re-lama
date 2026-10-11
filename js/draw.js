@@ -249,6 +249,7 @@ export function icon(g, name, cx, cy, s, color = '#fff', o = {}) {
     case 'paste': S('M7 5 H5 V21 H19 V5 H17 M9 3.5 H15 V7 H9 Z'); break;
     case 'trash': S('M5 7 H19 M9 7 V4.5 H15 V7 M7 7 L8 20 H16 L17 7'); break;
     case 'info': g.beginPath(); g.arc(12, 12, 9, 0, Math.PI * 2); g.stroke(); S('M12 11 V17'); g.beginPath(); g.arc(12, 7.5, 1.4, 0, Math.PI * 2); g.fill(); break;
+    case 'moon': F('M15.5 3.5 a8.5 8.5 0 1 0 5 13.5 a7 7 0 0 1 -5 -13.5 Z'); break;
     case 'heart': F('M12 20 C4 14 3 10 3 8 a4.5 4.5 0 0 1 9 -1 a4.5 4.5 0 0 1 9 1 c0 2 -1 6 -9 12 Z'); break;
     case 'star': starPath(g, 12, 12.5, 9.5, 5, 0.5); g.fill(); break;
     case 'flag': S('M6 21 V4 M6 4 H18 L15 8.5 L18 13 H6'); break;

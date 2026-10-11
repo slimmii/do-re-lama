@@ -56,7 +56,7 @@ export class TitleScene {
     y += 82;
     anim(1, () => ui.button('t:vrij', x, y, bw, 62, 'Vrij oefenen', { icon: 'target', variant: 'blue', sub: `Kies zelf je noten · ${S.settings.selection.map(solfegeOf).join(' ')}`.slice(0, 44), onClick: () => app.engine.go(app.scenes.free()) }));
     y += 78;
-    anim(2, () => ui.button('t:run', x, y, bw, 62, 'Lama Run', { icon: 'bolt', variant: 'purple', sub: 'Zonder gitaar · springen met de spatiebalk', onClick: () => app.engine.go(app.scenes.runner()) }));
+    anim(2, () => ui.button('t:hut', x, y, bw, 62, 'Lama-boomhut', { icon: 'home', variant: 'green', sub: 'Uitrusten en je kamer inrichten', onClick: () => app.engine.go(app.scenes.treehouse()) }));
     y += 80;
     anim(3, () => {
       const hw = (bw - 14) / 2;

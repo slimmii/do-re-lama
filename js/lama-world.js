@@ -58,7 +58,7 @@ export const BIOME_LEN = 4000; // zoveel pixels wandelen per landschap
 const FEATHER_GROUND = 90; // breedte van de zachte rand tussen twee bodems
 const FEATHER_SKY = 360; // ... en tussen twee achtergronden
 
-// Beelden worden gedeeld door alle werelden (het spel, het menu, Lama Run): elk beeld wordt maar één keer geladen.
+// Beelden worden gedeeld door alle werelden (het spel, het menu): elk beeld wordt maar één keer geladen.
 const cache = new Map();
 function loadImg(src) {
   if (!cache.has(src)) {
