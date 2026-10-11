@@ -19,6 +19,7 @@ import { ShopScene } from './scenes/shop.js';
 import { TreehouseScene } from './scenes/treehouse.js';
 import { TuneScene } from './scenes/tune.js';
 import { GamesScene } from './scenes/games.js';
+import { installDev } from './dev.js';
 
 const engine = new Engine(document.getElementById('game'));
 app.engine = engine;
@@ -59,3 +60,4 @@ engine.start();
 
 // Testhaakje (console): window.__lama.app.engine.top()
 window.__lama = { app, ui, S };
+installDev(); // dev.hulp() in de console

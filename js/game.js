@@ -10,7 +10,7 @@
 // Alles (ook de notenbalk) wordt op het canvas getekend; de HUD tekent de speelscène (scenes/play.js).
 import { parseNote, soundingMidi, solfege, solfegeOf, describePosition } from './notes.js';
 import { loadLlama, drawLlama, drawParticle, trailParticles, trailRate } from './lama-style.js';
-import { World, MONSTERS } from './lama-world.js';
+import { World, MONSTERS, BOSS_FRAMES } from './lama-world.js';
 import { drawClef, diatonic, E4, B4, SP } from './staff.js';
 import { FONT } from './draw.js';
 
@@ -39,6 +39,7 @@ const HALF = SP / 2; // een halve ruimte (één stap op de notenbalk)
 const COIN_Y = GROUND_Y - 165; // hoogte van de munten: daar zit de lama bovenaan haar sprong
 const COIN_CHANCE = 1 / 2; // kans op een munt na minstens één monster: gemiddeld 1 op 3 noten (nooit twee na elkaar)
 const BOSS_H = 150;
+const BOSS_FPS = 8; // zo snel speelt de poortwachter zijn animatie (24 frames = 3 s, zoals de video)
 
 // Toetsen als je met het toetsenbord speelt: de noten van laag naar hoog op de middelste rij.
 export const KEYS = [['KeyA', 'A'], ['KeyS', 'S'], ['KeyD', 'D'], ['KeyF', 'F'], ['KeyG', 'G'], ['KeyH', 'H'], ['KeyJ', 'J'], ['KeyK', 'K'], ['KeyL', 'L'], ['Semicolon', ';'], ['Quote', "'"], ['Backslash', '\\']];
@@ -690,34 +691,34 @@ export class LamaGame {
     if (n.state === 'wrong') label(g, '!', x, cy - h / 2 - 16, 30, '#ff5a5a');
   }
 
-  // De poortwachter: een groot monster van het volgende landschap, met kroon en levensbolletjes.
+  // De poortwachter: een groot monster van het volgende landschap als gitaarheld, met levensbolletjes.
   drawBoss(g, now) {
-    const b = this.boss, def = MONSTERS[b.monster], im = this.world.monster[b.monster];
+    const b = this.boss, anim = this.world.bossAnim[b.monster], big = this.world.boss[b.monster];
+    const im = anim || big || this.world.monster[b.monster];
     if (!im) return;
+    const flip = !anim && !big && MONSTERS[b.monster].flip; // het gitaarheld-beeld kijkt al naar de lama
+    // animatie: één frame uit de strook, BOSS_FPS per seconde
+    const fw = anim ? im.width / BOSS_FRAMES : im.width, sx = anim ? (Math.floor(now * BOSS_FPS) % BOSS_FRAMES) * fw : 0;
     const k = b.won ? Math.max(0, 1 - b.dieT / 1.2) : 1;
-    const h = BOSS_H * k, w = (im.width * h) / im.height;
+    const h = BOSS_H * k, w = (fw * h) / im.height;
     const x = b.x + (b.flash > 0 ? Math.sin(now * 80) * 5 : 0), y = GROUND_Y - h / 2 + Math.sin(now * 3) * 3;
     g.save();
     g.globalAlpha = k;
     g.translate(x, y);
-    if (def.flip) g.scale(-1, 1);
-    g.drawImage(im, -w / 2, -h / 2, w, h);
-    if (b.flash > 0) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = b.flash * 1.5; g.drawImage(im, -w / 2, -h / 2, w, h); }
+    if (flip) g.scale(-1, 1);
+    g.drawImage(im, sx, 0, fw, im.height, -w / 2, -h / 2, w, h);
+    if (b.flash > 0) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = b.flash * 1.5; g.drawImage(im, sx, 0, fw, im.height, -w / 2, -h / 2, w, h); }
     g.restore();
     if (b.won) return;
-    // kroon
+    // levensbolletjes boven zijn hoofd: hoeveel keer nog
     const cy = y - h / 2 - 6;
-    g.beginPath();
-    g.moveTo(x - 20, cy + 8); g.lineTo(x - 22, cy - 10); g.lineTo(x - 10, cy); g.lineTo(x, cy - 14); g.lineTo(x + 10, cy); g.lineTo(x + 22, cy - 10); g.lineTo(x + 20, cy + 8);
-    g.closePath(); g.fillStyle = '#ffcf33'; g.fill(); g.lineWidth = 2.5; g.strokeStyle = '#5a3530'; g.stroke();
-    // levensbolletjes: hoeveel keer nog
     const left = b.need - b.hits, r = 7, gap = 18, x0 = x - ((b.need - 1) * gap) / 2;
     for (let i = 0; i < b.need; i++) {
-      g.beginPath(); g.arc(x0 + i * gap, cy - 30, r, 0, Math.PI * 2);
+      g.beginPath(); g.arc(x0 + i * gap, cy - 8, r, 0, Math.PI * 2);
       g.fillStyle = i < left ? '#ff5a8a' : 'rgba(255,255,255,.35)'; g.fill();
       g.lineWidth = 2; g.strokeStyle = '#3a2350'; g.stroke();
     }
-    label(g, 'Poortwachter', x, cy - 54, 20, '#fff6c8');
+    label(g, 'Poortwachter', x, cy - 32, 20, '#fff6c8');
   }
 
   // Munt in de lucht: draait en zweeft. Gemist of fout: ze vliegt omhoog weg.

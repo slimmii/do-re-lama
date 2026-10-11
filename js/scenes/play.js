@@ -94,6 +94,12 @@ export class PlayScene {
     const stars = this.journey || g.pool.length >= STAR_MIN_NOTES;
     record(j, note, ok, { journey: this.journey && this.atFront(), boss: !!n.boss, stars });
     persist();
+    this.checkGate();
+  }
+
+  // Klaar voor de poortwachter (op de reis, in je verste landschap)? Dan komt hij aan de grens staan.
+  checkGate() {
+    const j = S.journey, g = this.game;
     if (this.journey && this.atFront() && g.running && !g.boss && ready(j)) {
       const b = bossFor(j.stage);
       if (g.world.img[BIOMES[b.stage].id]) g.queueBoss(b);

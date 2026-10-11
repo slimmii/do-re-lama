@@ -52,6 +52,13 @@ export const MONSTERS = {
   vuurbal: { h: 54, lift: 34, anim: 'float' },
   rotsreus: { h: 70, lift: 0, anim: 'stomp' },
 };
+// Poortwachters: het eerste monster van elk landschap (behalve de weide) bewaakt als gitaarheld de poort ernaartoe.
+// Hun beeld (img/lama/bazen/<monster>.png, gemaakt met OpenArt) kijkt naar de lama; ontbreekt het, dan het gewone monster.
+// <monster>_anim.webp is dezelfde gitaarheld in beweging: BOSS_FRAMES frames naast elkaar (uit een OpenArt-video).
+export const BOSS_FRAMES = 24;
+const bossSrc = (b) => (b.id === 'weide' ? null : `img/lama/bazen/${b.monsters[0]}.png`);
+const bossAnimSrc = (b) => (b.id === 'weide' ? null : `img/lama/bazen/${b.monsters[0]}_anim.webp`);
+
 const SRC_H = 672, SCENERY_BOTTOM = 620; // hoogte van het bronbeeld, onderkant van de achtergrond
 
 export const BIOME_LEN = 4000; // zoveel pixels wandelen per landschap
@@ -78,6 +85,8 @@ export async function preloadWorld(progress) {
   await Promise.all(BIOMES.map((b) => Promise.all([
     loadImg(`${DIR}${b.id}_scenery.webp`), loadImg(`${DIR}${b.id}_ground.webp`),
     ...b.monsters.map((m) => loadImg('img/lama/' + (MONSTERS[m].file || `monsters/${m}.png`))),
+    bossSrc(b) && loadImg(bossSrc(b)).catch(() => null),
+    bossAnimSrc(b) && loadImg(bossAnimSrc(b)).catch(() => null),
   ]).then(() => progress?.(++k, BIOMES.length))));
 }
 
@@ -87,6 +96,8 @@ export class World {
     this.lay = lay;
     this.img = {}; // id -> {scenery, ground}
     this.monster = {}; // id van een monster -> beeld
+    this.boss = {}; // id van een monster -> beeld als poortwachter
+    this.bossAnim = {}; // ... en de frames van zijn animatie
     this.off = null;
     // De route: welk landschap vanaf welke afgelegde weg. Op de reis blijf je in je landschap tot je de
     // poortwachter verslaat (goTo); bij vrij oefenen wisselen de landschappen elke BIOME_LEN (wander).
@@ -140,6 +151,10 @@ export class World {
       ...b.monsters.map((m) => loadImg('img/lama/' + (MONSTERS[m].file || `monsters/${m}.png`))),
     ]);
     b.monsters.forEach((m, i) => { this.monster[m] = mons[i]; });
+    if (bossSrc(b)) {
+      this.boss[b.monsters[0]] = await loadImg(bossSrc(b)).catch(() => null);
+      this.bossAnim[b.monsters[0]] = await loadImg(bossAnimSrc(b)).catch(() => null);
+    }
     this.img[id] = { scenery, ground }; // pas nu telt het landschap als klaar (ook de monsters)
   }
 

@@ -54,6 +54,13 @@ export function record(j, note, ok, { journey, boss, stars = true }) {
   if (ok) j.progress++;
 }
 
+// Ontwikkelaarshulp (zie dev.js): doe alsof je dit landschap al goed genoeg speelt; de poortwachter komt dan
+// bij de eerstvolgende kans, volgens de gewone regels van ready().
+export function fastForward(j) {
+  j.progress = Math.max(j.progress, GATE_HITS);
+  j.recent = Array(RECENT).fill(1);
+}
+
 // Sterren van één noot: pas na 10 pogingen; 70% juist = 1, 85% = 2, 95% = 3.
 export function starsOf(j, note) {
   const st = j.stars[note];
