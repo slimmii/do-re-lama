@@ -9,11 +9,17 @@ de menu's en de knoppen) wordt op één canvas getekend.
 Dubbelklik op `start.command`, of in een terminal:
 
 ```
-python3 serve.py
+npm install
+npm run dev
 ```
 
 De browser opent op <http://localhost:8770>. Klik op **Spelen** (het spel gaat dan op volledig scherm)
 en geef toestemming voor de microfoon. De microfoon werkt enkel via `http://localhost` of `https`.
+
+## Online zetten (Vercel)
+
+`npm run build` maakt de site in `dist/` (`npm run preview` om die lokaal te testen). Op Vercel: importeer de repo,
+Vercel herkent Vite vanzelf (build `npm run build`, output `dist`). Vercel serveert via https, dus de microfoon werkt.
 
 ## Spelvormen
 
@@ -65,11 +71,11 @@ is alles van jou en wordt niets bewaard.
 - `js/game.js`: het lama-spel (uit Simisol, nu met de notenbalk op het canvas: `js/staff.js`)
 - `js/scenes/`: laadscherm, titel, reis, vrij oefenen, spel, pauze, instellingen, winkel, boomhut
 - `js/treehouse.js`: de boomhut: plekken in de kamer, de spulletjes en het tekenen. **Iets nieuws toevoegen**:
-  zet een beeld met doorzichtige achtergrond in `img/lama/boomhut/<id>.webp` en voeg één regel toe aan
+  zet een beeld met doorzichtige achtergrond in `public/img/lama/boomhut/<id>.webp` en voeg één regel toe aan
   `HOUSE_ITEMS`. Een nieuw bed heeft ook een `<id>_slaap.webp` nodig (hetzelfde bed met de slapende lama erin,
   even groot); zonder dat beeld slaapt de lama rechtop naast het bed. Een nieuwe soort (bv. lampen) is een extra plek in `HOUSE_SLOTS`; de winkel krijgt er
   vanzelf een tabblad bij. De beelden zijn gemaakt met OpenArt (Nano Banana 2) op magenta en uitgeknipt.
 - Uit Simisol overgenomen: `notes.js`, `pitch.js` + `detector-worklet.js` (toonhoogteherkenning),
   `lama-style.js` (lama + winkelspulletjes), `lama-world.js` (landschappen), `lama-journey.js` (de reis)
-- `img/lama/`: de beelden; de bronbestanden en scripts om ze te maken staan nog in `simisol/art` en `simisol/tools`
-- `fonts/`: Nunito (SIL Open Font License)
+- `public/img/lama/`: de beelden; de bronbestanden en scripts om ze te maken staan nog in `simisol/art` en `simisol/tools`
+- `public/fonts/`: Nunito (SIL Open Font License)

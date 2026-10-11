@@ -1,4 +1,5 @@
 #!/bin/bash
 # Dubbelklik om Do Re Lama te starten.
 cd "$(dirname "$0")"
-python3 serve.py
+[ -d node_modules ] || npm install
+npm run dev

@@ -1,0 +1,13 @@
+{
+  "name": "do-re-lama",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --open",
+    "build": "vite build",
+    "preview": "vite preview --open"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}
