@@ -88,11 +88,12 @@ export class ShopScene {
   }
 
   buy(it) {
-    const w = S.wallet;
-    if (it.stars || w.coins < it.price) { ui.sound('error'); return; }
+    const w = S.wallet, free = w.gifts > 0; // met een cadeaubon krijg je één spulletje naar keuze gratis
+    if (it.stars || (!free && w.coins < it.price)) { ui.sound('error'); return; }
     if (this.confirm?.id !== it.id || this.t - this.confirm.t > 3) { this.confirm = { id: it.id, t: this.t }; return; } // eerst bevestigen
     this.confirm = null;
-    w.coins -= it.price;
+    if (free) w.gifts--;
+    else w.coins -= it.price;
     this.sec.owned().push(it.id);
     const worn = this.sec.worn();
     worn[it.slot] = this.isMulti(it.slot) ? this.added(placedIds(worn, it.slot), it) : it.id;
@@ -134,13 +135,23 @@ export class ShopScene {
     ribbon(g, 'Lama-winkel', VW / 2, y - 26, { size: 26, color: C.gold, dark: C.goldD });
     g.restore();
     ui.iconButton('sh:close', x + w - 8, y + 8, 48, 'close', { onClick: () => this.back(), variant: 'pink', sound: 'back' });
-    walletPills(g, x + w - 40, y + 18, { bump: this.coinBump });
+    // munten (en sterren) rechtsboven, naast de afdelingsknoppen; is het scherm te smal, dan vallen de sterren weg
+    const pw = Math.min(290, w * 0.32), px = x + 18, py = y + 22, ph = h - 40;
+    const gx = px + pw + 18, gw = x + w - 18 - gx;
+    const stars = gw - 264 >= 2 * 92;
+    walletPills(g, x + w - 40, y + 18, { bump: this.coinBump, stars });
+    const gifts = S.wallet.gifts > 0;
     const sec = this.sec;
 
     // voorvertoning links
-    const pw = Math.min(290, w * 0.32), px = x + 18, py = y + 22, ph = h - 40;
     if (this.section === 'house') this.drawRoomPreview(g, px, py, pw, ph - 70);
     else this.drawPreview(g, px, py, pw, ph - 70);
+    if (gifts) { // nog een gratis spulletje te kiezen
+      const str = S.wallet.gifts > 1 ? `${S.wallet.gifts}× gratis!` : '1 gratis!', tw = ui.measure(str, 14) + 40, bob = Math.sin(this.t * 4) * 2;
+      rr(g, px + pw - tw - 10, py + 10 + bob, tw, 26, 13); g.fillStyle = C.purple; g.fill(); g.lineWidth = 2.5; g.strokeStyle = C.ink; g.stroke();
+      icon(g, 'gift', px + pw - tw + 6, py + 23 + bob, 16, '#fff');
+      text(g, str, px + pw - tw / 2 + 2, py + 24 + bob, { size: 14, color: '#fff' });
+    }
     ui.button('sh:dice', px, py + ph - 58, pw, 54, 'Verrassing!', { icon: 'dice', variant: 'purple', size: 19, onClick: () => this.randomize() });
     if (TEST) {
       ui.button('sh:tc', px, py + ph - 116, pw / 2 - 4, 44, '+10', { variant: 'gold', size: 16, onClick: () => { S.wallet.coins += 10; } });
@@ -148,9 +159,8 @@ export class ShopScene {
     }
 
     // tabbladen
-    const gx = px + pw + 18, gw = x + w - 18 - gx;
     // afdelingen
-    const sw = clamp((gw - 236) / 2, 92, 128);
+    const sw = clamp((gw - (stars ? 264 : 158)) / 2, 92, 128);
     Object.entries(SECTIONS).forEach(([id, sc], i) => {
       const on = this.section === id;
       ui.button('sh:s' + id, gx + i * (sw + 6), y + 18, sw, 40, sc.name, { icon: id === 'house' ? 'home' : 'hat', variant: on ? 'green' : 'paper', size: 15, depth: on ? 2 : 4,
@@ -223,7 +233,7 @@ export class ShopScene {
 
   drawCard(g, it, x, y, w, h) {
     const w0 = S.wallet;
-    const owned = this.isOwned(it);
+    const owned = this.isOwned(it), free = w0.gifts > 0;
     const worn = this.isWorn(it), multi = this.isMulti(it.slot);
     const labels = (it.house && HOUSE_SLOT[it.slot].labels) || { on: 'Staat er', add: 'Zetten' };
     const trying = this.tryOn && this.tryOn.slot === it.slot && this.tryOn.id === it.id;
@@ -265,10 +275,11 @@ export class ShopScene {
     if (worn) { label = it.house ? (it.id ? labels.on : 'Leeg') : 'Aan'; variant = 'green'; icn = 'check'; onClick = () => this.equip(it); disabled = !it.id || fixed; }
     else if (owned) { label = it.house ? (it.id ? labels.add : multi ? 'Alle weg' : 'Weghalen') : it.id ? 'Aandoen' : 'Uitdoen'; variant = 'blue'; onClick = () => this.equip(it); }
     else if (it.stars) { label = `${it.stars} sterren`; variant = 'grey'; disabled = true; }
-    else if (this.confirm?.id === it.id && this.t - this.confirm.t < 3) { label = `Zeker? ${it.price}`; variant = 'pink'; onClick = () => this.buy(it); }
+    else if (this.confirm?.id === it.id && this.t - this.confirm.t < 3) { label = free ? 'Zeker? Gratis' : `Zeker? ${it.price}`; variant = 'pink'; onClick = () => this.buy(it); }
+    else if (free) { label = 'Gratis'; variant = 'purple'; icn = 'gift'; onClick = () => this.buy(it); }
     else { label = `${it.price}`; variant = 'gold'; onClick = () => this.buy(it); disabled = w0.coins < it.price; }
     ui.button('sh:b:' + key, bx, by, bw, bh, label, { variant, size: 14, depth: 3, r: 10, onClick, disabled, icon: icn, iconSize: 13, sound: 'tick' });
-    if (!owned && !it.stars && !(this.confirm?.id === it.id)) { // muntje voor de prijs
+    if (!owned && !it.stars && !free && !(this.confirm?.id === it.id)) { // muntje voor de prijs
       const tw = ui.measure(label, 14);
       g.drawImage(A.img.coin, x + w / 2 - tw / 2 - 22, by + 4, 16, 17);
     }

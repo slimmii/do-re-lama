@@ -236,12 +236,13 @@ export const ui = {
     const isz = o.iconSize ?? size * 1.15;
     const cx = x + w / 2;
     if (label) {
-      const tw = this.measure(label, size);
       const gap = o.icon ? isz * 0.45 : 0;
+      const maxW = w - 24 - (o.icon ? isz + gap : 0);
+      const tw = Math.min(this.measure(label, size), maxW); // te lange tekst wordt kleiner getekend: centreer op die breedte
       const total = tw + (o.icon ? isz + gap : 0);
       let lx = o.align === 'left' ? x + 18 : cx - total / 2;
       if (o.icon) { this.iconOutlined(o.icon, lx + isz / 2, cy, isz, ink, light); lx += isz + gap; }
-      text(g, label, lx, cy + 1, { size, color: ink, align: 'left', stroke: light ? null : C.ink, strokeW: size / 4, maxW: w - 24 - (o.icon ? isz + gap : 0) });
+      text(g, label, lx, cy + 1, { size, color: ink, align: 'left', stroke: light ? null : C.ink, strokeW: size / 4, maxW });
     } else if (o.icon) this.iconOutlined(o.icon, cx, cy, isz, ink, light);
     if (o.sub) text(g, o.sub, cx, y + lift + h / 2 + size * 0.62, { size: size * 0.52, weight: 800, color: light ? C.muted : 'rgba(255,255,255,.92)', maxW: w - 20 });
     if (o.badge) {

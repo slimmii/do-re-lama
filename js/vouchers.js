@@ -1,4 +1,5 @@
-// Cadeaubonnen: een code van 8 cijfers die je één keer kan inwisselen voor munten (een beloning van papa of mama).
+// Cadeaubonnen: een code van 8 cijfers die je één keer kan inwisselen voor munten of voor één gratis spulletje
+// naar keuze in de winkel (een beloning van papa of mama).
 // Hier staat enkel een controlegetal van elke code, zodat de codes zelf niet in het spel te lezen zijn.
 // De lijst met de echte codes staat in vouchers.txt (niet in git).
 const SALT = 'lama-bon';
@@ -59,19 +60,31 @@ const BONS = {
   '1628a1ea': 100,
   '5e2d28bb': 100,
   'db2894bb': 100,
+  // 'item': één gratis spulletje naar keuze
+  'd6f4d1ce': 'item',
+  '391a8d65': 'item',
+  '95f7fbfb': 'item',
+  '306ed37b': 'item',
+  'd2d2832d': 'item',
+  '972a2442': 'item',
+  'd68f6b9d': 'item',
+  '86038874': 'item',
+  '18dd651a': 'item',
+  'f5a9c45d': 'item',
 };
 
 export const VOUCHER_LEN = 8;
 export const isVoucher = (s) => /^\d{8}$/.test(s.replace(/[\s-]/g, ''));
 
-// Een bon inwisselen in de portemonnee w (in place). Geeft het aantal munten terug.
+// Een bon inwisselen in de portemonnee w (in place). Geeft { coins } of { item: true } terug.
 export function redeemVoucher(w, code) {
   const h = hash(code.replace(/[\s-]/g, ''));
-  const coins = BONS[h];
-  if (!coins) throw new Error('Deze code ken ik niet. Kijk nog eens goed naar de cijfers.');
+  const bon = BONS[h];
+  if (!bon) throw new Error('Deze code ken ik niet. Kijk nog eens goed naar de cijfers.');
   w.vouchers ||= [];
   if (w.vouchers.includes(h)) throw new Error('Deze bon is al ingewisseld.');
   w.vouchers.push(h);
-  w.coins += coins;
-  return coins;
+  if (bon === 'item') { w.gifts = (w.gifts || 0) + 1; return { item: true }; }
+  w.coins += bon;
+  return { coins: bon };
 }

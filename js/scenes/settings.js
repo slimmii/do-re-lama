@@ -101,9 +101,10 @@ export class SettingsScene {
   }
   redeem() {
     try {
-      const coins = redeemVoucher(S.wallet, this.bon);
+      const r = redeemVoucher(S.wallet, this.bon);
       persist(true);
-      this.msg = { text: `Hoera! Je krijgt ${coins} munten. Goed gedaan in de muziekschool!`, ok: true };
+      this.msg = { text: r.item ? 'Hoera! Je mag één spulletje gratis kiezen in de winkel. Goed gedaan in de muziekschool!'
+        : `Hoera! Je krijgt ${r.coins} munten. Goed gedaan in de muziekschool!`, ok: true };
       this.bon = '';
       ui.sound('buy');
     } catch (e) {
@@ -213,10 +214,11 @@ export class SettingsScene {
   bonRows(R) {
     const g = ui.g, full = this.bon.length === VOUCHER_LEN;
     return [
-      R(76, (x, y, w) => {
-        rr(g, x, y, w, 76, 14); g.fillStyle = 'rgba(255,255,255,.7)'; g.fill();
+      R(this.bonInfoH ?? 76, (x, y, w) => {
+        const lines = wrap(g, 'Tik de 8 cijfers van je bon in en wissel hem in voor munten of een gratis spulletje. Elke bon werkt maar één keer.', w - 32, 14, 700);
+        this.bonInfoH = 40 + lines.length * 18;
+        rr(g, x, y, w, this.bonInfoH, 14); g.fillStyle = 'rgba(255,255,255,.7)'; g.fill();
         text(g, 'Heb je een cadeaubon?', x + 16, y + 22, { size: 18, color: C.text, align: 'left' });
-        const lines = wrap(g, 'Tik de 8 cijfers van je bon in en wissel hem in voor munten. Elke bon werkt maar één keer.', w - 32, 14, 700);
         lines.forEach((l, i) => text(g, l, x + 16, y + 46 + i * 18, { size: 14, weight: 700, color: C.muted, align: 'left' }));
       }),
       R(64, (x, y, w) => { // de vakjes met de cijfers

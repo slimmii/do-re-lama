@@ -253,6 +253,7 @@ export function icon(g, name, cx, cy, s, color = '#fff', o = {}) {
     case 'heart': F('M12 20 C4 14 3 10 3 8 a4.5 4.5 0 0 1 9 -1 a4.5 4.5 0 0 1 9 1 c0 2 -1 6 -9 12 Z'); break;
     case 'star': starPath(g, 12, 12.5, 9.5, 5, 0.5); g.fill(); break;
     case 'flag': S('M6 21 V4 M6 4 H18 L15 8.5 L18 13 H6'); break;
+    case 'gift': S('M4 10 H20 V20 H4 Z M3 7 H21 V10 H3 Z M12 7 V20'); S('M12 7 C9 2 5.5 4.5 8.5 7 M12 7 C15 2 18.5 4.5 15.5 7'); break;
     case 'hat': F('M3 17 H21 V19 H3 Z M7 17 L8 7 Q12 5 16 7 L17 17 Z'); break;
     case 'speed': S('M4.5 16 a8 8 0 1 1 15 0 M12 16 L16 9'); break;
     case 'wave': S('M3 12 h2 l2 -6 l3 12 l3 -9 l2 6 l2 -3 h4'); break;

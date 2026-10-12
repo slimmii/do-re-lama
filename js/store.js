@@ -29,7 +29,7 @@ const DEFAULTS = () => ({
     selection: [...DEFAULT_SELECTION], // noten bij vrij oefenen
   },
   best: {}, // record per spelvorm/combinatie van noten
-  wallet: { coins: 0, owned: [], outfit: {}, imported: [], vouchers: [] }, // vouchers: ingewisselde cadeaubonnen
+  wallet: { coins: 0, owned: [], outfit: {}, imported: [], vouchers: [], gifts: 0 }, // vouchers: ingewisselde cadeaubonnen, gifts: gratis spulletjes nog te kiezen
   house: { owned: [], placed: {} }, // de boomhut: gekochte spulletjes en wat waar staat
   journey: newJourney(),
   tune: { at: {}, rewardAt: 0 }, // gitaar stemmen: wanneer elke snaar (klinkende midi) gestemd werd, laatste beloning
