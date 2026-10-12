@@ -288,7 +288,7 @@ export class DetectorCore {
       // YIN hoort met zekerheid een ANDERE nieuwe noot (geen octaaf van m): dan is m niet gespeeld.
       // (Behalve als YIN's toon een ondertoon van m is: een octaaf of een octaaf + kwint lager.)
       const under = yinPitch != null && [12, 19, 24].includes(m - yinPitch);
-      if (yinPitch != null && yinPitch !== m && !under && (yinPitch - m) % 12 !== 0 && newFrac(yinPitch) >= 0.25) return false;
+      if (yinPitch != null && yinPitch !== m && !under && (yinPitch - m) % 12 !== 0 && newFrac(yinPitch) >= 0.25 && harmonic(yinPitch)) return false;
       // De harmonischen van m moeten echt nieuw klinken, bijna zo sterk als de sterkste nieuwe toon.
       // (Anders kan wat overlopende energie van een buurnoot m ten onrechte 'bevestigen'.)
       // en een buurnoot die duidelijk sterker nieuw klinkt (bv. mi i.p.v. fa) wint
@@ -314,7 +314,7 @@ export class DetectorCore {
       if (nf < (yinPitch === m ? 0.15 : 0.25)) return false;
       // Klinkt eigenlijk de noot een octaaf lager (nieuw)? Dan is dat gespeeld, niet m.
       const low = m - 12;
-      if (low >= 40 && present(low) && newFrac(low) >= 0.25 && yinPitch !== m) return false;
+      if (low >= 40 && present(low) && newFrac(low) >= 0.25 && yinPitch !== m && oddOvertonesNew(low)) return false;
       return true;
     };
     const bestOf = (cands) => {
@@ -349,7 +349,12 @@ export class DetectorCore {
       const f0 = f0Of(m);
       return peakIn(diff, f0) >= 0.2 * Math.max(peakIn(diff, 2 * f0), peakIn(diff, 3 * f0), 1e-9) && peakIn(diff, f0) >= 0.03 * postMax;
     };
-    return { newFrac, best, choose, confirms, present, bestOf, hasFundamental, isSubharmonic, fundNew, isOvertoneOf };
+    // Heeft m eigen oneven boventonen (3e en 5e) in de nieuwe energie? De klap van de klankkast (100-150 Hz) vult
+    // enkel de grondtoon van een verzonnen ondertoon in, nooit haar 3e en 5e harmonische.
+    // Heeft de toon boventonen (2e of 3e harmonische)? De klankkastresonantie (100-150 Hz) is één enkele piek.
+    const harmonic = (m) => { const f = f0Of(m); return peakIn(post, 2 * f) + peakIn(post, 3 * f) >= 0.1 * peakIn(post, f) && peakIn(post, 2 * f) + peakIn(post, 3 * f) >= 0.05 * postMax; };
+    const oddOvertonesNew = (m) => { const f = f0Of(m); return peakIn(diff, 3 * f) + peakIn(diff, 5 * f) >= 0.05 * postMax; };
+    return { newFrac, best, choose, confirms, present, bestOf, hasFundamental, isSubharmonic, fundNew, isOvertoneOf, oddOvertonesNew, harmonic };
   }
 
   // Geeft { flux, cd }: relatieve toename van de spectrale grootte, en de 'complex domain'-afwijking:
@@ -510,7 +515,7 @@ export class DetectorCore {
         // YIN hoorde een ondertoon (octaaf of octaaf + kwint lager) van een verwachte noot die echt nieuw klinkt
         // (Niet als die lagere toon zelf echt nieuw klinkt, met eigen oneven boventonen: dan werd hij echt
         //  gespeeld, bv. de lage sol i.p.v. de hoge sol.)
-        const underHit = yinNew != null && (!ana.fundNew(yinNew) || ana.isSubharmonic(yinNew))
+        const underHit = yinNew != null && (!ana.fundNew(yinNew) || ana.isSubharmonic(yinNew) || !ana.oddOvertonesNew(yinNew))
           ? this.expect.find((e) => [12, 19, 24].includes(e - yinNew) && ana.confirms(e, yinNew)) : undefined;
         if (underHit != null) m = underHit;
         else if (yinNew != null) m = yinNew;
@@ -520,7 +525,8 @@ export class DetectorCore {
         // YIN (en de keuze hierboven) vergist zich soms een octaaf, of een octaaf + kwint, te laag als er meerdere
         // snaren klinken of in de klap van de aanslag. Dat herken je aan ontbrekende harmonischen: neem dan de
         // hogere toon waarvan de boventonen de nieuwe energie het best verklaren.
-        if (m != null && ana && m !== underHit && m !== hit && ana.isSubharmonic(m)) {
+        const sure = this.pending.votes.length >= 4 && strictY === m && this.expect.includes(m);
+        if (m != null && ana && m !== underHit && m !== hit && !sure && ana.isSubharmonic(m)) {
           const up = ana.bestOf([m + 12, m + 19, m + 24].filter((c) => !ana.isSubharmonic(c)));
           if (up != null) { sub = m; m = up; }
         }
@@ -528,7 +534,7 @@ export class DetectorCore {
         // YIN hoort zeker een nieuwe toon die niet in het spel zit: dan telt een andere noot enkel als die zelf
         // echt nieuw klinkt, en niet gewoon een ondertoon of buurnoot van die toon is (anders 'hoort' hij
         // in een gezongen re' de sol een octaaf + kwint lager).
-        const foreign = ana && strictY != null && !yinOk && ana.newFrac(strictY) >= 0.3 ? strictY : null;
+        const foreign = ana && strictY != null && !yinOk && ana.newFrac(strictY) >= 0.3 && ana.harmonic(strictY) ? strictY : null;
         if (m != null && foreign != null && (Math.abs(foreign - m) <= 2 || ana.isOvertoneOf(foreign, m) || !ana.fundNew(m) || !ana.present(m))) m = null;
         if (m == null) {
           if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y, best: ana?.best, m: 'GEEN' });
