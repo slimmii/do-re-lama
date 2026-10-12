@@ -254,6 +254,7 @@ export function icon(g, name, cx, cy, s, color = '#fff', o = {}) {
     case 'star': starPath(g, 12, 12.5, 9.5, 5, 0.5); g.fill(); break;
     case 'flag': S('M6 21 V4 M6 4 H18 L15 8.5 L18 13 H6'); break;
     case 'gift': S('M4 10 H20 V20 H4 Z M3 7 H21 V10 H3 Z M12 7 V20'); S('M12 7 C9 2 5.5 4.5 8.5 7 M12 7 C15 2 18.5 4.5 15.5 7'); break;
+    case 'apple': F('M12 8 C8 5.5 3.5 7 4 12.5 C4.5 17.5 8 21 10.5 20.5 C11.4 20.3 12.6 20.3 13.5 20.5 C16 21 19.5 17.5 20 12.5 C20.5 7 16 5.5 12 8 Z'); S('M12 8 C12 6 12.5 4.5 13.5 3.5'); F('M13 6 C14 3.5 17 3 18.5 3.5 C18 5.5 15.5 6.5 13 6 Z'); break;
     case 'hat': F('M3 17 H21 V19 H3 Z M7 17 L8 7 Q12 5 16 7 L17 17 Z'); break;
     case 'speed': S('M4.5 16 a8 8 0 1 1 15 0 M12 16 L16 9'); break;
     case 'wave': S('M3 12 h2 l2 -6 l3 12 l3 -9 l2 6 l2 -3 h4'); break;

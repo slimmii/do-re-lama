@@ -34,6 +34,12 @@ Vercel herkent Vite vanzelf (build `npm run build`, output `dist`). Vercel serve
   Je mag zoveel huisdieren tegelijk hebben als je wil: ze wandelen rond, elk op hun eigen tempo; de goudvis staat in
   zijn bokaal op het tafeltje. Klik op de lama om te springen, op een huisdier voor hartjes, op een gitaar voor een akkoordje. Met *Slapen* (of Z) gaat het licht uit:
   de lama wandelt naar haar bed, springt erin en slaapt onder het dekentje; met *Opstaan* springt ze eruit.
+- **De lama eten geven**: in de winkel (afdeling *Eten*) koop je voedsel: lamavoer, fruit, groenten, maaltijden,
+  lekkers en drinken (meer dan 50 soorten, 1 tot 15 munten). Eten is op als de lama het opeet, dus munten blijven
+  altijd iets waard. In de boomhut open je met *Eten* (of E) de voorraadkast: tik op iets en het vliegt naar de lama.
+  Haar buikje (het balkje onder de hartjes) loopt in een dag leeg; heeft ze honger, dan zegt ze dat zelf. Lekkers vult
+  weinig, maar dan springt ze van plezier (en dat mag ook als toetje als ze vol zit). De hartjes zijn de helft
+  gestemde snaren en de helft een vol buikje. Nieuw eten: één regel in `FOODS` (`js/food.js`).
 - **Gitaar stemmen** (boomhut › *Spelen*, of bij Instellingen › Microfoon): tokkel een losse snaar en de
   regenboogmeter toont of ze te laag of te hoog klinkt; hou ze juist tot de ster vol is. De lama is blij (hartjes in de
   boomhut) zolang de snaren onlangs gestemd zijn: een snaar blijft een halve dag vers en zakt dan in drie dagen weg.
@@ -61,7 +67,7 @@ Levens (1–10 of onsterfelijk), snelheid, hoe streng op de maat, grote notennaa
 metronoom en volume, microfoongevoeligheid, microfoonvertraging (met **meten**), echo-onderdrukking,
 spelen met het toetsenbord, geluidjes, volledig scherm.
 
-**Gegevens**: met *Code maken* / *Code plakken* zet je munten, spulletjes, de boomhut en je reis over naar een ander
+**Gegevens**: met *Code maken* / *Code plakken* zet je munten, spulletjes, de boomhut, de voorraadkast en je reis over naar een ander
 toestel. De codes (`LAMA-…`) zijn dezelfde als in Simisol, dus je kan je lama ook van daar overhalen.
 
 Alles wordt bewaard in de browser (`localStorage`, sleutel `lama-reis:save`: de oude naam, zodat bewaarde spelletjes blijven werken). Met `?test` achter de url

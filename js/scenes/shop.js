@@ -1,5 +1,5 @@
-// De winkel: munten uitgeven aan spulletjes. Twee afdelingen: de lama aankleden, en de boomhut inrichten.
-// Klik op een kaartje om te passen.
+// De winkel: munten uitgeven aan spulletjes. Drie afdelingen: de lama aankleden, de boomhut inrichten, en eten
+// kopen (dat is op als de lama het opeet; je geeft het haar in de boomhut). Klik op een kaartje om te passen.
 import { ui } from '../ui.js';
 import { C, text, title, panel, ribbon, rr, icon, star, clamp, ease } from '../draw.js';
 import { app } from '../app.js';
@@ -7,13 +7,16 @@ import { S, persist, TEST } from '../store.js';
 import { SLOTS, ITEMS, drawLlama, drawParticle, trailParticles, trailRate } from '../lama-style.js';
 import { totalStars } from '../lama-journey.js';
 import { HOUSE_SLOTS, HOUSE_SLOT, HOUSE_ITEMS, furnished, placedIds, drawRoom, drawFoliage, fitRoom, itemImage } from '../treehouse.js';
-import { dimScreen, walletPills } from './common.js';
+import { FOOD_CATS, FOODS, pantryCount, addFood, fullness, isHungry, drawFood } from '../food.js';
+import { dimScreen, walletPills, speech } from './common.js';
 
 // De afdelingen. Elke afdeling heeft plekken (tabbladen), spulletjes, en waar bewaard wordt wat je hebt en draagt.
 const SECTIONS = {
   lama: { name: 'Lama', slots: SLOTS, items: ITEMS, owned: () => S.wallet.owned, worn: () => S.wallet.outfit, first: 'head' },
   house: { name: 'Boomhut', slots: HOUSE_SLOTS, items: HOUSE_ITEMS, owned: () => S.house.owned, worn: () => S.house.placed, first: 'bed' },
+  food: { name: 'Eten', slots: FOOD_CATS, items: FOODS, owned: () => [], worn: () => ({}), first: FOOD_CATS[0].id },
 };
+const SECTION_ICON = { lama: 'hat', house: 'home', food: 'apple' };
 
 export class ShopScene {
   constructor(o = {}) {
@@ -87,6 +90,18 @@ export class ShopScene {
     persist();
   }
 
+  // eten kopen: meteen in de voorraadkast (geen bevestiging: het is goedkoop en je koopt er vaak meer)
+  buyFood(it) {
+    if (S.wallet.coins < it.price) { ui.sound('error'); return; }
+    S.wallet.coins -= it.price;
+    addFood(S.food, it.id);
+    this.tryOn = { slot: it.slot, id: it.id };
+    this.coinBump = 1;
+    this.bought = { id: it.id, t: this.t };
+    ui.sound('coin');
+    persist();
+  }
+
   buy(it) {
     const w = S.wallet, free = w.gifts > 0; // met een cadeaubon krijg je één spulletje naar keuze gratis
     if (it.stars || (!free && w.coins < it.price)) { ui.sound('error'); return; }
@@ -138,13 +153,15 @@ export class ShopScene {
     // munten (en sterren) rechtsboven, naast de afdelingsknoppen; is het scherm te smal, dan vallen de sterren weg
     const pw = Math.min(290, w * 0.32), px = x + 18, py = y + 22, ph = h - 40;
     const gx = px + pw + 18, gw = x + w - 18 - gx;
-    const stars = gw - 264 >= 2 * 92;
+    const nSec = Object.keys(SECTIONS).length;
+    const stars = gw - 264 >= nSec * 98;
     walletPills(g, x + w - 40, y + 18, { bump: this.coinBump, stars });
-    const gifts = S.wallet.gifts > 0;
+    const gifts = S.wallet.gifts > 0 && this.section !== 'food'; // cadeaubonnen gelden niet voor eten
     const sec = this.sec;
 
     // voorvertoning links
     if (this.section === 'house') this.drawRoomPreview(g, px, py, pw, ph - 70);
+    else if (this.section === 'food') this.drawFoodPreview(g, px, py, pw, ph - 70);
     else this.drawPreview(g, px, py, pw, ph - 70);
     if (gifts) { // nog een gratis spulletje te kiezen
       const str = S.wallet.gifts > 1 ? `${S.wallet.gifts}× gratis!` : '1 gratis!', tw = ui.measure(str, 14) + 40, bob = Math.sin(this.t * 4) * 2;
@@ -152,7 +169,8 @@ export class ShopScene {
       icon(g, 'gift', px + pw - tw + 6, py + 23 + bob, 16, '#fff');
       text(g, str, px + pw - tw / 2 + 2, py + 24 + bob, { size: 14, color: '#fff' });
     }
-    ui.button('sh:dice', px, py + ph - 58, pw, 54, 'Verrassing!', { icon: 'dice', variant: 'purple', size: 19, onClick: () => this.randomize() });
+    if (this.section === 'food') this.drawTummy(g, px, py + ph - 58, pw, 54);
+    else ui.button('sh:dice', px, py + ph - 58, pw, 54, 'Verrassing!', { icon: 'dice', variant: 'purple', size: 19, onClick: () => this.randomize() });
     if (TEST) {
       ui.button('sh:tc', px, py + ph - 116, pw / 2 - 4, 44, '+10', { variant: 'gold', size: 16, onClick: () => { S.wallet.coins += 10; } });
       ui.button('sh:to', px + pw / 2 + 4, py + ph - 116, pw / 2 - 4, 44, 'Alles uit', { variant: 'paper', size: 16, onClick: () => { if (this.section === 'house') S.house.placed = {}; else S.wallet.outfit = {}; } });
@@ -160,10 +178,10 @@ export class ShopScene {
 
     // tabbladen
     // afdelingen
-    const sw = clamp((gw - (stars ? 264 : 158)) / 2, 92, 128);
+    const sw = clamp((gw - (stars ? 264 : 158)) / nSec - 6, 84, 128);
     Object.entries(SECTIONS).forEach(([id, sc], i) => {
       const on = this.section === id;
-      ui.button('sh:s' + id, gx + i * (sw + 6), y + 18, sw, 40, sc.name, { icon: id === 'house' ? 'home' : 'hat', variant: on ? 'green' : 'paper', size: 15, depth: on ? 2 : 4,
+      ui.button('sh:s' + id, gx + i * (sw + 6), y + 18, sw, 40, sc.name, { icon: SECTION_ICON[id], variant: on ? 'green' : 'paper', size: 15, depth: on ? 2 : 4,
         onClick: () => this.setSection(id), sound: 'tick' });
     });
     // een plek met enkel het basisding (zoals het tafeltje) krijgt pas een tabblad als er iets te kiezen valt
@@ -178,8 +196,9 @@ export class ShopScene {
 
 
     // kaartjes
-    const none = this.section === 'house' && HOUSE_SLOT[this.slot].base ? [] : [{ id: null, slot: this.slot, name: this.slot === 'fur' ? 'Crème' : 'Niets', price: 0, house: this.section === 'house' }];
+    const none = this.section === 'food' || (this.section === 'house' && HOUSE_SLOT[this.slot].base) ? [] : [{ id: null, slot: this.slot, name: this.slot === 'fur' ? 'Crème' : 'Niets', price: 0, house: this.section === 'house' }];
     const items = [...none, ...sec.items.filter((i) => i.slot === this.slot)];
+    if (this.section === 'food') { this.drawFoodGrid(g, items, gx, y, gw, h); return; }
     const cols = Math.max(3, Math.floor((gw + 10) / 132)), cw = (gw - 10 * (cols - 1) - 12) / cols, ch = 168;
     const rows = Math.ceil(items.length / cols);
     const ay = y + 134, ah = y + h - 16 - ay;
@@ -189,7 +208,66 @@ export class ShopScene {
     });
   }
 
-  drawPreview(g, x, y, w, h) {
+  // de kaartjes met eten (kleiner dan de spulletjes: er is veel)
+  drawFoodGrid(g, items, gx, y, gw, h) {
+    const cols = Math.max(3, Math.floor((gw + 10) / 112)), cw = (gw - 10 * (cols - 1) - 12) / cols, ch = 136;
+    const rows = Math.ceil(items.length / cols);
+    const ay = y + 134, ah = y + h - 16 - ay;
+    rr(g, gx - 6, ay - 6, gw + 12, ah + 12, 16); g.fillStyle = C.paper2; g.fill();
+    ui.scroll('sh:grid:food:' + this.slot, gx, ay, gw, ah, rows * (ch + 10) + 4, (top) => {
+      items.forEach((it, i) => this.drawFoodCard(g, it, gx + (i % cols) * (cw + 10), top + 4 + Math.floor(i / cols) * (ch + 10), cw, ch));
+    });
+  }
+
+  drawFoodCard(g, it, x, y, w, h) {
+    const n = pantryCount(S.food, it.id);
+    const trying = this.tryOn?.id === it.id;
+    const st = ui.region({ id: 'sh:c:' + it.id, x, y, w, h: h - 40, onClick: () => { this.tryOn = { slot: it.slot, id: it.id }; }, sound: 'tick', focus: false });
+    const hv = ui.anim('shh' + it.id, st.hover ? 1 : 0, 16);
+    rr(g, x, y + 3, w, h, 16); g.fillStyle = 'rgba(29,16,48,.15)'; g.fill();
+    rr(g, x, y - hv * 2, w, h, 16);
+    g.fillStyle = trying ? '#eaf3ff' : '#fff'; g.fill();
+    g.lineWidth = trying ? 4 : 2.5; g.strokeStyle = trying ? C.blue : C.paperLine; g.stroke();
+    // bordje met het eten
+    const cx = x + w / 2, cy = y + 40 - hv * 2;
+    g.fillStyle = '#f3ece2'; g.beginPath(); g.ellipse(cx, cy + 16, w * 0.36, 9, 0, 0, Math.PI * 2); g.fill();
+    g.lineWidth = 2; g.strokeStyle = C.paperLine; g.stroke();
+    const just = this.bought?.id === it.id ? clamp(1 - (this.t - this.bought.t) / 0.4, 0, 1) : 0;
+    drawFood(g, it, cx, cy, 42 * (1 + 0.25 * just) * (trying ? 1 + 0.04 * Math.sin(this.t * 6) : 1));
+    if (n > 0) { // zoveel heb je er al
+      const str = '×' + n, tw = ui.measure(str, 13) + 14;
+      rr(g, x + w - tw - 6, y + 6, tw, 22, 11); g.fillStyle = C.green; g.fill(); g.lineWidth = 2; g.strokeStyle = C.ink; g.stroke();
+      text(g, str, x + w - 6 - tw / 2, y + 17.5, { size: 13, color: '#fff' });
+    }
+    if (it.treat) star(g, x + 16, y + 17, 7, true);
+    text(g, it.name, cx, y + h - 46, { size: 14, color: C.text, maxW: w - 10 });
+    const bx = x + 8, by = y + h - 30, bw = w - 16, bh = 26, label = `${it.price}`;
+    ui.button('sh:b:' + it.id, bx, by, bw, bh, label, { variant: 'gold', size: 14, depth: 3, r: 10, onClick: () => this.buyFood(it), disabled: S.wallet.coins < it.price, sound: 'silent' });
+    const tw = ui.measure(label, 14);
+    g.drawImage(app.A.img.coin, x + w / 2 - tw / 2 - 22, by + 4, 16, 17);
+  }
+
+  // hoe vol het buikje van de lama is (onderaan links, in de afdeling Eten)
+  drawTummy(g, x, y, w, h) {
+    const f = fullness(S.food), hungry = isHungry(S.food);
+    rr(g, x, y, w, h, 18); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 3; g.strokeStyle = C.ink; g.stroke();
+    text(g, hungry ? 'Buikje: honger!' : 'Buikje', x + 16, y + 16, { size: 14, color: hungry ? C.pinkD : C.text, align: 'left' });
+    text(g, `${pantryCountAll()} in de kast`, x + w - 16, y + 16, { size: 13, weight: 800, color: C.muted, align: 'right' });
+    rr(g, x + 14, y + 29, w - 28, 14, 7); g.fillStyle = '#eadfd2'; g.fill();
+    if (f > 0.01) { rr(g, x + 14, y + 29, (w - 28) * f, 14, 7); g.fillStyle = hungry ? C.pink : C.green; g.fill(); }
+    rr(g, x + 14, y + 29, w - 28, 14, 7); g.lineWidth = 2; g.strokeStyle = C.ink; g.stroke();
+  }
+
+  // de lama, met in een ballonnetje wat ze van het gekozen eten vindt
+  drawFoodPreview(g, x, y, w, h) {
+    this.drawPreview(g, x, y, w, h, true);
+    const it = this.tryOn && FOODS.find((f) => f.id === this.tryOn.id);
+    const str = it ? (it.treat ? `${it.name}! Lekker!` : `Mmm, ${it.name.toLowerCase()}!`) : isHungry(S.food) ? 'Ik heb honger…' : 'Wat zullen we eten?';
+    speech(g, str, x + w / 2 + 20, y + h * 0.42, { maxW: w - 20, size: 15, x0: x + 8, x1: x + w - 8 });
+    if (it) drawFood(g, it, x + 34, y + h - 34, 40 + 3 * Math.sin(this.t * 4));
+  }
+
+  drawPreview(g, x, y, w, h, food = false) {
     const t = this.t;
     g.save();
     g.beginPath(); g.roundRect(x, y, w, h, 18); g.clip();
@@ -225,7 +303,7 @@ export class ShopScene {
     drawLlama(g, A, sheet, i, cx - sm.anchorX * s, gy + 3 - lift - sm.cellH * s, s, out, t);
     g.restore();
     g.beginPath(); g.roundRect(x, y, w, h, 18); g.lineWidth = 4; g.strokeStyle = C.ink; g.stroke();
-    if (this.tryOn) {
+    if (this.tryOn && !food) {
       rr(g, x + 10, y + 10, 84, 26, 13); g.fillStyle = C.blue; g.fill(); g.lineWidth = 2.5; g.strokeStyle = C.ink; g.stroke();
       text(g, 'passen…', x + 52, y + 24, { size: 14, color: '#fff' });
     }
@@ -323,3 +401,5 @@ export class ShopScene {
     }
   }
 }
+
+const pantryCountAll = () => Object.values(S.food.pantry).reduce((a, b) => a + b, 0);

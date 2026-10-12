@@ -68,7 +68,7 @@ export class SettingsScene {
 
   // ---------- gegevens ----------
   async makeCode() {
-    this.code = exportCode(S.wallet, S.journey, S.house);
+    this.code = exportCode(S.wallet, S.journey, S.house, S.food);
     try { await navigator.clipboard.writeText(this.code); this.msg = { text: 'Code gekopieerd! Plak ze op het andere toestel bij “Code plakken”.', ok: true }; }
     catch { this.msg = { text: 'Kopiëren lukte niet automatisch. Neem de code hieronder over.', ok: false }; }
   }
@@ -83,7 +83,7 @@ export class SettingsScene {
   }
   importText(s) {
     try {
-      const r = importCode(S.wallet, s.trim(), S.journey, S.house);
+      const r = importCode(S.wallet, s.trim(), S.journey, S.house, S.food);
       persist(true);
       this.msg = { text: `Gelukt! ${r.added} ${r.added === 1 ? 'nieuw spulletje' : 'nieuwe spulletjes'}${r.gained ? `, ${r.gained} munten erbij` : ''}${r.stages > 0 ? ` en ${r.stages} ${r.stages === 1 ? 'landschap' : 'landschappen'} verder op de reis` : ''}.`, ok: true };
       ui.sound('buy');

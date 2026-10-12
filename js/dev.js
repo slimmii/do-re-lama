@@ -17,6 +17,7 @@ const dev = {
       'dev.win()': 'versla de poortwachter die nu staat (alsof je zijn noot nog x keer speelt)',
       'dev.landschap(n)': 'reis door tot landschap n (0 = weide), alsof je elke poortwachter versloeg',
       'dev.munten(n)': 'n munten erbij',
+      'dev.honger(n)': 'buikje van de lama op n zetten (0 = honger, 1 = vol)',
     });
     if (!TEST) log('Let op: zonder ?test in de adresbalk wordt alles bewaard.');
   },
@@ -62,6 +63,12 @@ const dev = {
     j.at = n;
     persist();
     log(`Je staat nu in ${STAGES[n].name}${n < j.stage ? ` (verste: ${STAGES[j.stage].name})` : ''}.`);
+  },
+
+  honger(n = 0) { // buikje zetten (0 = honger, 1 = vol)
+    S.food.full = Math.max(0, Math.min(1, +n)); S.food.at = Date.now();
+    persist();
+    log(`Buikje: ${Math.round(S.food.full * 100)}%.`);
   },
 
   munten(n = 100) {

@@ -92,6 +92,7 @@ export function sfx(name) {
     case 'hurt': noise(c, t, 0.18, 0.25, 900); tone(c, t, 200, 90, 0.2, 0.1, 'square'); break;
     case 'stomp': noise(c, t, 0.08, 0.2, 2000); tone(c, t, 520, 1040, 0.1, 0.07, 'square'); break;
     case 'strum': [196, 247, 294, 392, 494, 659].forEach((f, i) => tone(c, t + i * 0.025, f, f, 0.7, 0.05, 'triangle')); break; // G-akkoord
+    case 'eat': [0, 0.13, 0.26].forEach((d) => { noise(c, t + d, 0.07, 0.22, 2600); tone(c, t + d, 300, 180, 0.06, 0.05, 'square'); }); break; // knabbel knabbel
     case 'heart': [784, 988, 1319].forEach((f, i) => tone(c, t + i * 0.06, f, f, 0.12, 0.06, 'triangle')); break;
     case 'over': [392, 330, 262, 196].forEach((f, i) => tone(c, t + i * 0.14, f, f * 0.98, 0.22, 0.08, 'triangle')); break;
   }

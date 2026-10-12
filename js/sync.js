@@ -1,4 +1,4 @@
-// Overzetten naar een ander toestel: een code met je munten, spulletjes, kleren, de boomhut en de reis.
+// Overzetten naar een ander toestel: een code met je munten, spulletjes, kleren, de boomhut, de voorraadkast en de reis.
 // LAMA-<base64 van de gegevens>-<controlegetal>. Dezelfde codes als in de Simisol-notentrainer, dus je
 // kan je lama ook van daar naar hier halen (en terug).
 // Bij het inlezen krijg je alle spulletjes erbij (je verliest er nooit), je munten worden het hoogste van de
@@ -6,6 +6,7 @@
 import { ITEM } from './lama-style.js';
 import { mergeJourney } from './lama-journey.js';
 import { HOUSE_ITEM, HOUSE_SLOT } from './treehouse.js';
+import { FOOD } from './food.js';
 
 const SALT = 'simisol-lama';
 function checksum(str) { // FNV-1a, 6 hexcijfers
@@ -16,9 +17,9 @@ function checksum(str) { // FNV-1a, 6 hexcijfers
 const toB64 = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const fromB64 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
 
-export function exportCode(w, j, h) {
+export function exportCode(w, j, h, f) {
   const data = JSON.stringify({ v: 1, id: Math.random().toString(36).slice(2, 10), c: w.coins, o: w.owned, w: w.outfit,
-    j: j ? { s: j.stage, st: j.stars } : undefined, h: h ? { o: h.owned, p: h.placed } : undefined });
+    j: j ? { s: j.stage, st: j.stars } : undefined, h: h ? { o: h.owned, p: h.placed } : undefined, f: f ? f.pantry : undefined });
   const body = toB64(data);
   return `LAMA-${body}-${checksum(body)}`;
 }
@@ -40,11 +41,12 @@ export function parseCode(code) {
     if (HOUSE_SLOT[s].multi) placed[s] = (Array.isArray(v) ? v : [v]).filter((id) => ok(s, id));
     else if (ok(s, v)) placed[s] = v;
   }
-  return { id: String(d.id), coins: Math.max(0, Math.floor(+d.c || 0)), owned, outfit, journey: d.j, house: d.h ? { owned: hOwned, placed } : null };
+  return { id: String(d.id), coins: Math.max(0, Math.floor(+d.c || 0)), owned, outfit, journey: d.j, house: d.h ? { owned: hOwned, placed } : null,
+    pantry: Object.fromEntries(Object.entries(d.f || {}).filter(([id, n]) => FOOD[id] && n > 0).map(([id, n]) => [id, Math.floor(n)])) };
 }
 
 // Een code inlezen in de portemonnee w (in place). Geeft terug wat er bij kwam.
-export function importCode(w, code, j, h) {
+export function importCode(w, code, j, h, f) {
   const d = parseCode(code);
   w.imported ||= [];
   if (w.imported.includes(d.id)) throw new Error('Deze code is op dit toestel al gebruikt. Maak een nieuwe op het andere toestel.');
@@ -62,6 +64,7 @@ export function importCode(w, code, j, h) {
     h.placed = { ...d.house.placed };
     houseAdded = extra.length;
   }
+  if (f) for (const [id, n] of Object.entries(d.pantry)) f.pantry[id] = Math.max(f.pantry[id] || 0, n); // eten: het hoogste van de twee
   const before = j?.stage ?? 0;
   if (j) mergeJourney(j, d.journey);
   return { added: added.length + houseAdded, gained, stages: (j?.stage ?? 0) - before };

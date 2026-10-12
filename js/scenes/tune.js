@@ -8,8 +8,9 @@ import { S, persist } from '../store.js';
 import { mic, unlock, sfx } from '../audio.js';
 import { drawParticle } from '../lama-style.js';
 import { drawRoom, fitRoom } from '../treehouse.js';
-import { TUNE_STRINGS, IN_TUNE, HOLD, REWARD, REWARD_EVERY_H, matchString, happiness, isSad } from '../tuning.js';
+import { TUNE_STRINGS, IN_TUNE, HOLD, REWARD, REWARD_EVERY_H, matchString, isSad } from '../tuning.js';
 import { topBar, speech, heartsMeter } from './common.js';
+import { mood } from '../food.js';
 import { drawRoomLama, rainCloud } from './treehouse.js';
 
 const RANGE = 50; // cent links en rechts op de meter
@@ -178,7 +179,7 @@ export class TuneScene {
         this.head = r.head; this.lamaTop = r.rect.y;
       },
     });
-    const h = happiness(S.tune);
+    const h = mood(S); // de hartjes: gestemde snaren en een vol buikje
     this.sad = isSad(h);
     if (this.sad && this.head) rainCloud(g, this.head[0], this.lamaTop - 34 * this.head[2], 1.1 * this.head[2], t);
     g.fillStyle = 'rgba(29,16,48,.5)'; g.beginPath(); g.roundRect(R.x + 10, R.y + 10, 158, 36, 18); g.fill();

@@ -3,6 +3,7 @@ import { newJourney } from './lama-journey.js';
 import { ITEMS } from './lama-style.js';
 import { HOUSE_ITEMS, HOUSE_SLOTS } from './treehouse.js';
 import { DEFAULT_SELECTION } from './notes.js';
+import { FOODS, newFood } from './food.js';
 
 const KEY = 'lama-reis:save';
 
@@ -32,6 +33,7 @@ const DEFAULTS = () => ({
   wallet: { coins: 0, owned: [], outfit: {}, imported: [], vouchers: [], gifts: 0 }, // vouchers: ingewisselde cadeaubonnen, gifts: gratis spulletjes nog te kiezen
   house: { owned: [], placed: {} }, // de boomhut: gekochte spulletjes en wat waar staat
   journey: newJourney(),
+  food: newFood(), // eten: de voorraadkast en hoe vol het buikje is
   tune: { at: {}, rewardAt: 0 }, // gitaar stemmen: wanneer elke snaar (klinkende midi) gestemd werd, laatste beloning
   intro: false, // uitleg al gezien
 });
@@ -49,6 +51,7 @@ export const S = {
   wallet: { ...d.wallet, ...raw.wallet },
   house: { ...d.house, ...raw.house },
   tune: { ...d.tune, ...raw.tune },
+  food: { ...d.food, ...raw.food, pantry: { ...raw.food?.pantry } },
   journey: Object.assign(newJourney(), raw.journey),
 };
 delete S.runBest; // van Lama Run, die er niet meer is
@@ -58,6 +61,7 @@ if (S.journey.at == null || S.journey.at > S.journey.stage) S.journey.at = S.jou
 
 if (TEST) S.wallet = { coins: 50, owned: ITEMS.map((i) => i.id), outfit: { ...S.wallet.outfit }, imported: [] };
 if (TEST) S.house = { owned: HOUSE_ITEMS.map((i) => i.id), placed: { ...S.house.placed } };
+if (TEST) S.food = { ...newFood(), full: 0.2, pantry: Object.fromEntries(FOODS.map((f) => [f.id, 3])) };
 
 let timer = 0;
 export function persist(now = false) {
