@@ -4,7 +4,7 @@ import { C, text, title, panel, ribbon, rr, icon, wrap, clamp, ease } from '../d
 import { app } from '../app.js';
 import { S, persist, resetAll, TEST } from '../store.js';
 import { mic, calibrate, unlock } from '../audio.js';
-import { solfege } from '../notes.js';
+import { solfegeMidi } from '../notes.js';
 import { exportCode, importCode } from '../sync.js';
 import { VOUCHER_LEN, isVoucher, redeemVoucher } from '../vouchers.js';
 import { isFullscreen, canFullscreen, toggleFullscreen } from '../engine.js';
@@ -276,7 +276,7 @@ export class SettingsScene {
     rr(g, x + 56, y + 40, w - 200, 14, 7); g.fillStyle = '#e6d8ea'; g.fill();
     rr(g, x + 56, y + 40, (w - 200) * clamp(mic.level, 0, 1), 14, 7); g.fillStyle = C.green; g.fill();
     const recent = mic.midi != null && performance.now() - mic.heardAt < 700;
-    title(g, recent ? solfege(mic.midi + 12) : '–', x + w - 70, y + 36, 32, recent ? '#7ee08a' : '#fff');
+    title(g, recent ? solfegeMidi(mic.midi) : '–', x + w - 70, y + 36, 32, recent ? '#7ee08a' : '#fff');
   }
 
   // Welke microfoon: de knop gaat de lijst rond.

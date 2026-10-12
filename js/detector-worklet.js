@@ -326,12 +326,20 @@ export class DetectorCore {
       }
       return pick;
     };
-    // Is m een 'ondertoon' (de echte noot ligt hoger)? Dan ontbreken de oneven harmonischen 1, 3, 5 van m.
+    // Is m een 'ondertoon' (de echte noot ligt hoger)?
+    // Een octaaf te laag: dan ontbreken de oneven harmonischen 1, 3, 5 van m.
+    // Een octaaf + kwint te laag (do i.p.v. sol: sol is de 3e harmonische van do, en elke boventoon van sol is er
+    // ook een van do): dan zit de nieuwe energie enkel op 3 en 6, en niets op 2, 4 en 5. De grondtoon zelf telt
+    // daar niet mee: de klap van de aanslag en de klankkast geven rond 100-150 Hz altijd wat nieuwe energie,
+    // en net die 'vult' de grondtoon van de verzonnen do in.
     const isSubharmonic = (m) => {
       const f0 = f0Of(m);
       const odd = peakIn(post, f0) + peakIn(post, 3 * f0) + peakIn(post, 5 * f0);
       const even = peakIn(post, 2 * f0) + peakIn(post, 4 * f0) + peakIn(post, 6 * f0);
-      return even > 0 && odd < 0.2 * even;
+      if (even > 0 && odd < 0.2 * even) return true;
+      const third = peakIn(diff, 3 * f0) + peakIn(diff, 6 * f0);
+      const rest = peakIn(diff, 2 * f0) + peakIn(diff, 4 * f0) + peakIn(diff, 5 * f0);
+      return third > 0 && rest < 0.2 * third;
     };
     // Is de grondtoon zelf hoorbaar? Bij een 'ondertoon' van YIN is die er niet.
     const hasFundamental = (m) => peakIn(post, f0Of(m)) >= 0.08 * postMax;
@@ -498,23 +506,24 @@ export class DetectorCore {
       // 2. Anders: is het een van de noten die de app nu verwacht? (helpt als er snaren naklinken)
       const hit = ana && yinNew == null ? this.expect.find((e) => ana.confirms(e, y)) : undefined;
       if (ana || (age > 0.25 && v.length)) {
-        let m;
+        let m, sub = null;
         // YIN hoorde een ondertoon (octaaf of octaaf + kwint lager) van een verwachte noot die echt nieuw klinkt
         // (Niet als die lagere toon zelf echt nieuw klinkt, met eigen oneven boventonen: dan werd hij echt
         //  gespeeld, bv. de lage sol i.p.v. de hoge sol.)
-        const underHit = yinNew != null && !ana.fundNew(yinNew)
+        const underHit = yinNew != null && (!ana.fundNew(yinNew) || ana.isSubharmonic(yinNew))
           ? this.expect.find((e) => [12, 19, 24].includes(e - yinNew) && ana.confirms(e, yinNew)) : undefined;
         if (underHit != null) m = underHit;
-        else if (yinNew != null) {
-          // YIN vergist zich soms een octaaf te laag als er meerdere snaren klinken: controleer de oneven harmonischen.
-          // YIN kan ook een 'ondertoon' kiezen (een octaaf, of een octaaf + kwint te laag). Dat herken je aan
-          // een ontbrekende grondtoon: neem dan de toon waarvan de boventonen de nieuwe energie het best verklaren.
-          m = yinNew;
-          if (ana.isSubharmonic(m)) m = ana.bestOf([m + 12, m + 19, m + 24].filter((c) => !ana.isSubharmonic(c))) ?? m;
-        }
+        else if (yinNew != null) m = yinNew;
         else if (hit != null) m = hit;
         // 3. Anders: kies de toon die bij deze aanslag nieuw is en waarvan de harmonischen het best kloppen.
         else m = (ana && ana.choose([y, ana.best])) ?? y ?? ana?.best;
+        // YIN (en de keuze hierboven) vergist zich soms een octaaf, of een octaaf + kwint, te laag als er meerdere
+        // snaren klinken of in de klap van de aanslag. Dat herken je aan ontbrekende harmonischen: neem dan de
+        // hogere toon waarvan de boventonen de nieuwe energie het best verklaren.
+        if (m != null && ana && m !== underHit && m !== hit && ana.isSubharmonic(m)) {
+          const up = ana.bestOf([m + 12, m + 19, m + 24].filter((c) => !ana.isSubharmonic(c)));
+          if (up != null) { sub = m; m = up; }
+        }
         if (m != null && !this.ok(m)) m = null; // geen noot uit het spel (bv. iemand die zingt)
         // YIN hoort zeker een nieuwe toon die niet in het spel zit: dan telt een andere noot enkel als die zelf
         // echt nieuw klinkt, en niet gewoon een ondertoon of buurnoot van die toon is (anders 'hoort' hij
@@ -525,7 +534,7 @@ export class DetectorCore {
           if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y, best: ana?.best, m: 'GEEN' });
           this.recentAttack = this.pending; this.pending = null; return;
         }
-        if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y, best: ana?.best, ch: this.lastChoose?.join(' '), fy: ana && y != null ? +ana.newFrac(y).toFixed(2) : null, fb: ana?.best != null ? +ana.newFrac(ana.best).toFixed(2) : null, m });
+        if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y, best: ana?.best, ch: this.lastChoose?.join(' '), fy: ana && y != null ? +ana.newFrac(y).toFixed(2) : null, fb: ana?.best != null ? +ana.newFrac(ana.best).toFixed(2) : null, m, sub, hit: underHit ?? hit ?? null });
         this.current = m;
         this.lastEmitted = m;
         // fresh: welk deel van deze toon (0..1) nieuw is bij de aanslag; laag = tik/ruis op een snaar die nog naklonk
@@ -570,12 +579,13 @@ if (typeof registerProcessor === 'function') {
         super();
         this.core = new DetectorCore(sampleRate, (msg) => this.port.postMessage(msg));
         this.port.onmessage = (e) => {
-          const { sensitivity, latency, expect, allowed, minFreq } = e.data || {};
+          const { sensitivity, latency, expect, allowed, minFreq, debug } = e.data || {};
           if (Array.isArray(allowed)) this.core.allowed = allowed.length ? new Set(allowed.filter((x) => Number.isInteger(x))) : null;
           if (Array.isArray(expect)) this.core.expect = expect.filter((x) => Number.isInteger(x));
           if (typeof sensitivity === 'number') this.core.sensitivity = sensitivity;
           if (typeof latency === 'number') this.core.latency = latency;
           if (typeof minFreq === 'number') this.core.minFreq = minFreq;
+          if (typeof debug === 'boolean') this.core.debug = debug;
         };
       }
       process(inputs) {

@@ -49,6 +49,37 @@ function tok(time, accent) {
   return src;
 }
 
+// ---------- getokkelde gitaarsnaar (zonder gitaar spelen) ----------
+// Karplus-Strong: een kort ruisje dat steeds rondgaat en zachter wordt klinkt als een snaar. Eén buffer per noot.
+const plucks = new Map();
+let ringing = null; // de snaar die nu klinkt: een nieuwe tokkel dempt ze, zoals op een echte gitaar
+function pluckBuffer(c, midi) {
+  if (plucks.has(midi)) return plucks.get(midi);
+  const sr = c.sampleRate, f = 440 * Math.pow(2, (midi - 69) / 12);
+  const N = Math.max(2, Math.round(sr / f - 0.5)); // het middelen vertraagt een halve sample
+  const b = c.createBuffer(1, Math.round(sr * 2), sr), d = b.getChannelData(0);
+  let prev = 0;
+  for (let i = 0; i < N; i++) { prev = prev * 0.5 + (Math.random() * 2 - 1) * 0.5; d[i] = prev; } // zacht ruisje: warme aanslag
+  for (let i = N; i < d.length; i++) d[i] = 0.996 * 0.5 * (d[i - N] + d[i - N - 1 < 0 ? 0 : i - N - 1]);
+  plucks.set(midi, b);
+  return b;
+}
+export function pluck(midi, time) {
+  const c = audioCtx();
+  const t = Math.max(time ?? c.currentTime, c.currentTime);
+  if (ringing) { ringing.g.gain.cancelScheduledValues(t); ringing.g.gain.setTargetAtTime(0, t, 0.02); ringing.s.stop(t + 0.15); }
+  const s = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain();
+  s.buffer = pluckBuffer(c, midi);
+  lp.type = 'lowpass'; lp.frequency.value = 3500;
+  g.gain.setValueAtTime(0.7, t);
+  g.gain.setValueAtTime(0.7, t + 1.5);
+  g.gain.linearRampToValueAtTime(0, t + 2); // uitdoven: de buffer stopt na 2 s
+  s.connect(lp).connect(g).connect(c.destination);
+  s.start(t);
+  ringing = { s, g };
+  s.onended = () => { if (ringing?.s === s) ringing = null; };
+}
+
 // ---------- geluidjes ----------
 export const sound = { quiet: false }; // quiet: het gitaarspel luistert
 
@@ -111,6 +142,8 @@ export const mic = {
   devices: [], // [{id, label}] alle microfoons; id '' = standaard van de browser
   listener: null,
   tuning: false, // stemmodus: de meting zoekt ook lage tonen (lage mi, 82 Hz)
+  debug: false, // de detector legt per aanslag uit hoe hij aan zijn noot kwam (dev.mic() in de console)
+  debugLog: [], // de laatste uitleg-berichten, voor de overlay in het spel
   listen(fn) { this.listener = fn; },
   emit(ev) { this.listener?.(ev); },
   get running() { return !!this.detector?.running; },
@@ -136,6 +169,8 @@ export const mic = {
       else if (f.level < 0.05) this.midi = null;
     };
     d.onNote = (ev) => this.emit(ev);
+    d.debug = this.debug;
+    d.onDebug = (m) => { this.debugLog.push(m); if (this.debugLog.length > 12) this.debugLog.shift(); };
     try {
       await d.start();
       this.detector = d;
@@ -165,6 +200,7 @@ export const mic = {
   },
   setExpect(midis) { this.detector?.setExpect(midis); },
   setTuning(on) { this.tuning = on; this.detector?.setMinFreq(on ? TUNE_MIN_HZ : 90); },
+  setDebug(on) { this.debug = on; this.debugLog = []; if (this.detector) this.detector.debug = on; },
   applySettings() {
     const d = this.detector;
     if (!d) return;

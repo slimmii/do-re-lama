@@ -8,7 +8,7 @@
 // Op de reis staat er aan de grens met een nieuw landschap een poortwachter (queueBoss): speel zijn noot
 // (de nieuwe noot) een paar keer juist en hij is verslagen. Zijn wolkjes kosten geen leven.
 // Alles (ook de notenbalk) wordt op het canvas getekend; de HUD tekent de speelscène (scenes/play.js).
-import { parseNote, soundingMidi, solfege, solfegeOf, describePosition } from './notes.js';
+import { parseNote, soundingMidi, solfegeMidi, solfegeOf, describePosition } from './notes.js';
 import { loadLlama, drawLlama, drawParticle, trailParticles, trailRate } from './lama-style.js';
 import { World, MONSTERS, BOSS_FRAMES } from './lama-world.js';
 import { drawClef, diatonic, E4, B4, SP } from './staff.js';
@@ -118,6 +118,7 @@ export class LamaGame {
 
   reset() {
     this.notes = []; // {p, beat, kind, finger, state: null|'hit'|'wrong'|'missed', ...}
+    this.trace = []; // laatste gehoorde noten en wat het spel ermee deed: {t, midi, d, verdict} (zie dev.mic())
     this.beat = 0;
     this.score = 0;
     this.lives = this.maxLives;
@@ -431,7 +432,7 @@ export class LamaGame {
     this.hurtT = 0.9;
     this.sparkle(PLAYER_X + 30, GROUND_Y - 50, '#ff5a8a');
     if (!this.immortal() && this.lives <= 0) return this.gameOver();
-    this.say(n.state === 'wrong' ? `Au! Dat was ${solfegeOf(n.p)}, niet ${n.played}.` : `Au! Te laat voor ${solfegeOf(n.p)}.`);
+    this.say(n.state === 'wrong' ? `Au! Dat was ${solfegeMidi(soundingMidi(n.p))}, niet ${n.played}.` : `Au! Te laat voor ${solfegeOf(n.p)}.`);
   }
 
   // Positie van de wereld op tijdstip t (bv. het moment van een tokkel, al gecorrigeerd voor de microfoonvertraging).
@@ -458,14 +459,19 @@ export class LamaGame {
     const at = Math.min(ev.time ?? now, now);
     // Waar stond de noot op het moment van de tokkel (niet: toen de herkenning klaar was)?
     const d = (tgt.beat - this.beatAt(at)) * PX_PER_BEAT;
+    const trace = { t: ev.time, midi: ev.midi, want: soundingMidi(tgt.p), d, verdict: '' };
+    this.trace.push(trace);
+    if (this.trace.length > 12) this.trace.shift();
     // Nog niet in de blauwe balk: niet meetellen en niet bestraffen, enkel laten zien.
     if (d > BAR_LATE + this.barW()) {
+      trace.verdict = 'te vroeg';
       if (ev.attack !== false) tgt.earlyUntil = now + 0.6;
       return;
     }
     // Voorbij de balk en het monster is al bij de lama: te laat, het gaat botsen.
     // (Net na de balk, maar vóór de botsing, telt nog: een kleine onzichtbare marge.)
-    if (d < CONTACT_PX && ev.midi === soundingMidi(tgt.p)) return;
+    if (d < CONTACT_PX && ev.midi === soundingMidi(tgt.p)) { trace.verdict = 'te laat'; return; }
+    trace.verdict = ev.midi === soundingMidi(tgt.p) ? 'raak' : 'fout';
     if (ev.midi === soundingMidi(tgt.p) && tgt.kind === 'coin') { // springen om de munt te vangen, geen punt
       tgt.state = 'hit';
       this.judge(tgt, true);
@@ -490,13 +496,13 @@ export class LamaGame {
       return;
     }
     // Alleen een duidelijke nieuwe aanslag kan fout zijn: geen nagalm, geen dubbele detectie van de vorige noot.
-    if (ev.attack === false) return;
-    if (this.lastHit && ev.midi === this.lastHit.midi && ev.time - this.lastHit.time < 0.3) return;
+    if (ev.attack === false) { trace.verdict = 'nagalm'; return; }
+    if (this.lastHit && ev.midi === this.lastHit.midi && ev.time - this.lastHit.time < 0.3) { trace.verdict = 'dubbel'; return; }
     tgt.state = 'wrong';
-    tgt.played = solfege(ev.midi + 12);
+    tgt.played = solfegeMidi(ev.midi);
     tgt.wrongText = `fout: ${tgt.played}`;
     this.judge(tgt, false);
-    if (tgt.boss) this.say(`Fout: ${tgt.played}. De poortwachter wil ${solfegeOf(tgt.p)} horen.`);
+    if (tgt.boss) this.say(`Fout: ${tgt.played}. De poortwachter wil ${solfegeMidi(soundingMidi(tgt.p))} horen.`);
     else if (tgt.kind === 'coin') { tgt.lostT = tgt.t; this.say(`Fout: ${tgt.played}. De munt vliegt weg…`); }
     else this.say(`Fout: ${tgt.played}. De lama gaat botsen…`);
     this.sendExpect();

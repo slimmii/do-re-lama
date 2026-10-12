@@ -28,6 +28,8 @@ Vercel herkent Vite vanzelf (build `npm run build`, output `dist`). Vercel serve
   Bereikte landschappen kan je opnieuw spelen op de kaart.
 - **Vrij oefenen**: kies zelf je noten (bv. wat de leerkracht vraagt). Alle bereikte landschappen wisselen af.
   Minder munten, geen poortwachters; sterren tellen vanaf 3 noten.
+  Met **Zonder gitaar** (bv. op een tablet) tik je op de juiste noot uit 3 keuzes (of toets 1 2 3) en hoor je die noot getokkeld; dan geen
+  microfoon, een apart record en tellen de sterren niet mee.
 - **Lama-boomhut**: de kamer waar de lama uitrust. In het begin staan er enkel een bedje en een tafeltje; in de
   winkel (afdeling *Boomhut*) koop je bedovertrekjes, posters, een spiegel, matjes, stoelen, bloemen,
   gitaren (twee haakjes aan de muur, dus twee tegelijk) en huisdiertjes.

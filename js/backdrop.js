@@ -2,6 +2,7 @@
 import { World, BIOMES } from './lama-world.js';
 import { drawLlama, trailParticles, trailRate, drawParticle } from './lama-style.js';
 import { S } from './store.js';
+import { ui } from './ui.js';
 
 const GROUND_Y = (606 * 540) / 672;
 
@@ -35,7 +36,10 @@ export function fitWorld(g, world, dist, VW, VH, draw) {
   }
   g.save();
   g.translate(0, oy);
+  const uy = ui.oy;
+  ui.oy = uy + oy; // knoppen in de wereld (HUD) klikbaar op de plek waar ze getekend worden
   draw();
+  ui.oy = uy;
   g.restore();
   return oy;
 }

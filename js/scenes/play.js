@@ -3,9 +3,9 @@ import { ui } from '../ui.js';
 import { C, text, title, pill, bar, rr, wrap, icon, star, clamp, ease } from '../draw.js';
 import { app } from '../app.js';
 import { S, persist } from '../store.js';
-import { audioCtx, click, mic, sound, sfx, unlock } from '../audio.js';
+import { audioCtx, click, mic, pluck, sound, sfx, unlock } from '../audio.js';
 import { LamaGame, PLAYER_X, GROUND_Y } from '../game.js';
-import { PRACTICE_NOTES, soundingMidi, solfege, solfegeOf, describePosition } from '../notes.js';
+import { PRACTICE_NOTES, soundingMidi, solfegeMidi, solfegeOf, describePosition } from '../notes.js';
 import {
   STAGES, GATE_HITS, BOSS_COINS, STAR_MIN_NOTES, unlockedNotes, isLastStage, accuracy, ready, record, bossFor, advance,
 } from '../lama-journey.js';
@@ -14,6 +14,19 @@ import { fitWorld } from '../backdrop.js';
 import { card, dimScreen, noteChip } from './common.js';
 
 const COINS_JOURNEY = 1 / 2, COINS_FREE = 1 / 9; // gemiddeld 1 op 3 noten een munt, bij vrij oefenen 1 op 10
+const TAP_CHOICES = 3; // zonder gitaar: zoveel knoppen om uit te kiezen
+
+// Zonder gitaar: de juiste noot en een paar andere uit het spel, van laag naar hoog. Blijft vast per noot.
+function choicesFor(n, pool) {
+  if (!n.choices) {
+    const others = pool.filter((p) => p !== n.p).sort(() => Math.random() - 0.5).slice(0, TAP_CHOICES - 1);
+    n.choices = [n.p, ...others].sort((a, b) => soundingMidi(a) - soundingMidi(b));
+  }
+  return n.choices;
+}
+
+// Naam op een knop: hoge do en sol krijgen een accent, zodat ze verschillen van de lage.
+const tapName = (p) => solfegeOf(p) + (p === 'G5' || p === 'C5' ? '′' : '');
 
 function getGame() {
   if (!app.game) app.game = new LamaGame({ ctx: audioCtx, click, setExpect: (m) => mic.setExpect(m) });
@@ -27,6 +40,7 @@ export class PlayScene {
   }
 
   get journey() { return this.mode === 'reis'; }
+  get tap() { return !this.journey && S.settings.noGuitar; } // vrij oefenen zonder gitaar: tikken op een keuze
   atFront() { return S.journey.at === S.journey.stage; }
 
   enter() {
@@ -55,7 +69,7 @@ export class PlayScene {
 
   bestKey() {
     const base = this.journey ? `reis:${S.journey.at}` : [...S.settings.selection].sort().join(',');
-    return base + (S.settings.lives === 3 ? '' : `|${S.settings.lives}`);
+    return base + (S.settings.lives === 3 ? '' : `|${S.settings.lives}`) + (this.tap ? '|tik' : '');
   }
 
   configure() {
@@ -66,8 +80,8 @@ export class PlayScene {
     g.metro = st.metro;
     g.showNames = st.names;
     g.showFingers = st.fingers;
-    g.bigName = st.bigName;
-    g.keyboard = st.keyboard;
+    g.bigName = st.bigName && !this.tap; // zonder gitaar staan daar de keuzeknoppen
+    g.keyboard = st.keyboard && !this.tap;
     g.maxLives = st.lives;
     g.outfit = S.wallet.outfit;
     g.fresh = j.fresh;
@@ -83,7 +97,7 @@ export class PlayScene {
     const g = this.game, st = S.settings;
     g.bpm = st.bpm;
     g.setBarBeats(Math.round(st.tol * 2.5 * 100) / 100);
-    g.metro = st.metro; g.showNames = st.names; g.showFingers = st.fingers; g.bigName = st.bigName; g.keyboard = st.keyboard;
+    g.metro = st.metro; g.showNames = st.names; g.showFingers = st.fingers; g.bigName = st.bigName && !this.tap; g.keyboard = st.keyboard && !this.tap;
     g.outfit = S.wallet.outfit;
     mic.applySettings();
   }
@@ -91,7 +105,7 @@ export class PlayScene {
   // ---------- reis ----------
   onJudge(note, ok, n) {
     const j = S.journey, g = this.game;
-    const stars = this.journey || g.pool.length >= STAR_MIN_NOTES;
+    const stars = this.journey || (g.pool.length >= STAR_MIN_NOTES && !this.tap); // tikken zegt niets over gitaarspelen
     record(j, note, ok, { journey: this.journey && this.atFront(), boss: !!n.boss, stars });
     persist();
     this.checkGate();
@@ -124,7 +138,7 @@ export class PlayScene {
     if (this.state === 'mic' || this.state === 'play') return;
     unlock();
     sfx('start');
-    if (!S.settings.keyboard) {
+    if (!S.settings.keyboard && !this.tap) {
       this.state = 'mic';
       const ok = await mic.ensure();
       if (!ok) { this.state = 'micerr'; this.stateT = this.t; return; }
@@ -133,7 +147,7 @@ export class PlayScene {
     mic.applySettings();
     this.configure();
     this.game.start();
-    this.game.say(S.intro ? '' : 'Speel de noot boven het monster als ze in de blauwe balk staat!');
+    this.game.say(this.tap ? 'Tik op de noot boven het monster als ze in de blauwe balk staat!' : S.intro ? '' : 'Speel de noot boven het monster als ze in de blauwe balk staat!');
     S.intro = true;
     this.wonStage = false;
     sound.quiet = true;
@@ -189,7 +203,12 @@ export class PlayScene {
     if (this.state === 'play') {
       if (k === 'Escape' || k === 'KeyP') { this.pause(); return true; }
       if (k === 'ArrowLeft' || k === 'ArrowRight') { this.setSpeed(k === 'ArrowRight' ? 5 : -5); return true; }
-      if (S.settings.keyboard && !e.repeat) {
+      if (this.tap) {
+        const i = /^(?:Digit|Numpad)([1-9])$/.exec(k)?.[1] - 1;
+        const t = this.game.running && this.game.target();
+        if (t && i >= 0) { const p = choicesFor(t, this.game.pool)[i]; if (p && !e.repeat) this.answer(p); return true; }
+      }
+      if (S.settings.keyboard && !this.tap && !e.repeat) {
         const p = this.game.noteForKey(k);
         if (p) { mic.emit({ midi: soundingMidi(p), time: audioCtx().currentTime, attack: true }); return true; }
         if (/^Key[A-Z]$|^Semicolon$|^Quote$|^Backslash$/.test(k) && this.game.running) { // een toets zonder noot = fout
@@ -207,14 +226,31 @@ export class PlayScene {
 
   update() { this.game.update(); }
 
+  // Zonder gitaar: een keuze telt als een tokkel op die noot, en je hoort ze ook.
+  answer(p) {
+    const time = audioCtx().currentTime;
+    pluck(soundingMidi(p), time);
+    mic.emit({ midi: soundingMidi(p), time, attack: true });
+  }
+
+  // Meteen bij het neerdrukken (niet pas bij het loslaten): dat telt voor de timing.
+  pointer(phase, x, y) {
+    if (phase !== 'down' || !this.tap || this.state !== 'play' || !this.game.running) return;
+    const i = /^tap:(\d)$/.exec(ui.hit(x, y)?.id ?? '')?.[1];
+    const t = this.game.target();
+    if (i != null && t) this.answer(choicesFor(t, this.game.pool)[i]);
+  }
+
   draw(g, VW, VH, isTop) {
     const game = this.game;
     game.resize(VW);
+    const st = this.state;
     const oy = fitWorld(g, game.world, game.dist, VW, VH, () => {
       game.draw(g, { staff: true, behind: () => this.drawBubble(g) });
       this.drawHud(g, VW);
+      if (this.tap && st === 'play' && game.running) this.drawChoices(g);
     });
-    const st = this.state;
+    if (mic.debug) this.drawDebug(g, VW, VH);
     if (st === 'ready' || st === 'mic') this.drawReady(g, VW, VH);
     else if (st === 'micerr') this.drawMicError(g, VW, VH);
     else if (st === 'over' && this.t - this.stateT > 0.7) this.drawOver(g, VW, VH);
@@ -247,6 +283,22 @@ export class PlayScene {
     g.fillStyle = '#fff'; g.fillRect(PLAYER_X - 28, y + h - 4, 24, 5);
     lines.forEach((l, i) => text(g, l, x + 16, y + 21 + i * 22, { size: 17, weight: 800, color: C.text, align: 'left' }));
     g.restore();
+  }
+
+  // ---------- zonder gitaar: keuzeknoppen op de plek van de grote notennaam ----------
+  drawChoices(g) {
+    const game = this.game, t = game.target();
+    if (!t) return;
+    const list = choicesFor(t, game.pool);
+    const hot = game.inBar(game.xOf(t) - PLAYER_X);
+    const bw = 116, bh = 84, gap = 16, tw = list.length * (bw + gap) - gap;
+    const cx = Math.min(PLAYER_X + (game.W - PLAYER_X) * 0.48, game.W - tw / 2 - 16), y = 240 - bh / 2;
+    list.forEach((p, i) => {
+      // geen onClick: pointer() reageert al bij het neerdrukken
+      ui.button('tap:' + i, cx - tw / 2 + i * (bw + gap), y, bw, bh, tapName(p), {
+        variant: hot ? (t.kind === 'coin' ? 'gold' : 'blue') : 'paper', size: 34, badge: list.length > 1 ? String(i + 1) : null, focus: false,
+      });
+    });
   }
 
   // ---------- HUD op de bodem ----------
@@ -326,6 +378,11 @@ export class PlayScene {
   drawMic(g, x, y, w, h) {
     pill(g, x, y, w, h);
     const cy = y + h / 2;
+    if (this.tap) {
+      icon(g, 'note', x + 20, cy, 20, '#fff');
+      text(g, 'zonder gitaar', x + 36, cy + 1, { size: 14, color: '#fff', align: 'left' });
+      return;
+    }
     if (S.settings.keyboard) {
       icon(g, 'keyboard', x + 20, cy, 20, '#fff');
       text(g, 'toetsenbord', x + 36, cy + 1, { size: 14, color: '#fff', align: 'left' });
@@ -336,9 +393,25 @@ export class PlayScene {
     rr(g, x + 32, cy - 4, 40 * clamp(mic.level, 0, 1), 8, 4); g.fillStyle = C.green; g.fill();
     const tgt = this.game.running ? this.game.target() : null;
     const recent = mic.midi != null && performance.now() - mic.heardAt < 600;
-    const name = recent ? solfege(mic.midi + 12) : '–';
+    const name = recent ? solfegeMidi(mic.midi) : '–';
     const match = recent && tgt && soundingMidi(tgt.p) === mic.midi;
     text(g, name, x + w - 30, cy + 1, { size: 18, color: match ? '#7ee08a' : '#fff', stroke: match ? C.ink : null, strokeW: 4 });
+  }
+
+  // ---------- ontwikkelaars: wat hoorde de detector, en wat deed het spel ermee (dev.mic() in de console) ----------
+  drawDebug(g, VW, VH) {
+    const nm = (m) => (m == null ? '–' : solfegeMidi(m));
+    const rows = mic.debugLog.slice(-8).map((d) => {
+      const tr = this.game.trace.find((x) => Math.abs(x.t - d.t) < 0.005);
+      const heard = d.m === 'GEEN' || d.m == null ? 'GEEN' : nm(d.m) + (d.sub != null ? ` (yin zei ${nm(d.sub)}: ondertoon)` : '');
+      const yin = d.y != null ? `${nm(d.y)}×${d.strict}` : '–';
+      const game = tr ? `${tr.verdict} (wil ${nm(tr.want)}, ${Math.round(tr.d)}px)` : '';
+      return `${d.t.toFixed(2)}  ${heard}   yin ${yin}  best ${nm(d.best)}  nieuw ${d.fy ?? '–'}/${d.fb ?? '–'}${d.hit != null ? `  verwacht ${nm(d.hit)}` : ''}   ${game}`;
+    });
+    const h = 22 * rows.length + 34, y = VH - h - 12;
+    rr(g, 12, y, Math.min(VW - 24, 720), h, 10); g.fillStyle = 'rgba(20,10,30,.8)'; g.fill();
+    text(g, 'microfoon (dev.mic(false) zet dit uit)', 24, y + 16, { size: 12, weight: 700, color: '#b07cff', align: 'left' });
+    rows.forEach((s, i) => text(g, s, 24, y + 38 + i * 22, { size: 12, weight: 700, color: '#fff', align: 'left' }));
   }
 
   // ---------- kaarten ----------
@@ -355,16 +428,17 @@ export class PlayScene {
       const tw = notes.length * (cw + 8) - 8;
       notes.forEach((p, i) => {
         const nx = VW / 2 - tw / 2 + i * (cw + 8);
-        noteChip(g, nx, y + 72, cw, ch, solfegeOf(p), S.settings.keyboard ? `toets ${game.keyOf.get(p)?.[1] ?? ''}` : describePosition(p).replace('snaar, ', '· ').replace('e vakje', ''), j.fresh[p] > 0 && this.journey ? C.pink : C.blue);
+        noteChip(g, nx, y + 72, cw, ch, solfegeOf(p), this.tap ? 'tik' : S.settings.keyboard ? `toets ${game.keyOf.get(p)?.[1] ?? ''}` : describePosition(p).replace('snaar, ', '· ').replace('e vakje', ''), j.fresh[p] > 0 && this.journey ? C.pink : C.blue);
         if (j.fresh[p] > 0 && this.journey) {
           rr(g, nx + cw / 2 - 24, y + 64, 48, 16, 8); g.fillStyle = C.pink; g.fill();
           text(g, 'NIEUW', nx + cw / 2, y + 72.5, { size: 11, color: '#fff' });
         }
       });
       const lines = [
-        'Speel de noot boven het monster terwijl ze in de blauwe balk staat: de lama springt!',
+        this.tap ? 'Tik op de noot boven het monster terwijl ze in de blauwe balk staat: de lama springt!'
+          : 'Speel de noot boven het monster terwijl ze in de blauwe balk staat: de lama springt!',
         game.immortal() ? 'Fout of te laat = botsen. Onsterfelijk: je kan niet verliezen (en er zijn geen munten).'
-          : `Fout of te laat = botsen. Je hebt ${game.maxLives} ${game.maxLives === 1 ? 'leven' : 'levens'}. Een munt in de lucht? Speel die noot en vang ze!`,
+          : `Fout of te laat = botsen. Je hebt ${game.maxLives} ${game.maxLives === 1 ? 'leven' : 'levens'}. Een munt in de lucht? ${this.tap ? 'Tik' : 'Speel'} die noot en vang ze!`,
       ];
       if (this.journey && this.atFront() && !isLastStage(j.stage)) lines.push(ready(j) ? 'De poortwachter wacht op je!' : `Nog ${Math.max(0, GATE_HITS - j.progress)} juiste noten tot de poortwachter (80% juist).`);
       let ly = y + 150;

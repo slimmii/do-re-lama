@@ -27,6 +27,7 @@ const DEFAULTS = () => ({
     onlyGameNotes: true, // de microfoon negeert tonen die niet in het spel voorkomen (bv. zingen)
     micId: '', // gekozen microfoon (deviceId); '' = standaard van de browser
     keyboard: false, // spelen met het toetsenbord in plaats van de gitaar
+    noGuitar: false, // vrij oefenen zonder gitaar: tik op de juiste noot (3 keuzes)
     selection: [...DEFAULT_SELECTION], // noten bij vrij oefenen
   },
   best: {}, // record per spelvorm/combinatie van noten

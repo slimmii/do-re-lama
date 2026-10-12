@@ -16,6 +16,9 @@ export class PitchDetector {
   set sensitivity(v) { this._sensitivity = v; this.node?.port.postMessage({ sensitivity: v }); }
   get latency() { return this._latency; }
   set latency(v) { this._latency = v; this.node?.port.postMessage({ latency: v }); }
+  // Laat de detector per aanslag uitleggen hoe hij aan zijn noot kwam (onDebug); zie dev.mic() in de console.
+  get debug() { return !!this._debug; }
+  set debug(v) { this._debug = !!v; this.node?.port.postMessage({ debug: !!v }); }
 
   // Klinkende midi-noten die nu (of zo meteen) verwacht worden; helpt de detector als er nog snaren naklinken.
   setExpect(midis) {
@@ -52,11 +55,12 @@ export class PitchDetector {
     this.label = this.stream.getAudioTracks()[0]?.label || '';
     this.source = this.ctx.createMediaStreamSource(this.stream);
     this.node = new AudioWorkletNode(this.ctx, 'simisol-detector', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1, channelCountMode: 'explicit' });
-    this.node.port.postMessage({ sensitivity: this._sensitivity, latency: this._latency, allowed: this._allowed || [], minFreq: this._minFreq || 90 });
+    this.node.port.postMessage({ sensitivity: this._sensitivity, latency: this._latency, allowed: this._allowed || [], minFreq: this._minFreq || 90, debug: !!this._debug });
     this.node.port.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'frame') this.onFrame?.(m);
       else if (m.type === 'note') this.onNote?.(m);
+      else if (m.type === 'debug') this.onDebug?.(m);
     };
     // Een stille uitgang houdt de worklet actief.
     this.mute = this.ctx.createGain();

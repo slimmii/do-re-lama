@@ -40,6 +40,9 @@ export const GAME_MIDIS = [...new Set(Object.keys(FRETBOARD).map(soundingMidi))]
 
 export const solfege = (midi) => SOLFEGE[((midi % 12) + 12) % 12];
 export const solfegeOf = (name) => solfege(writtenMidi(name));
+// Naam van een klinkende midi-noot, met een accent voor het hoge octaaf (geschreven octaaf 5 en hoger).
+// Zo zie je het verschil tussen de lage sol (losse 3e snaar) en de hoge sol (1e snaar, 3e vakje).
+export const solfegeMidi = (midi) => solfege(midi + 12) + (midi + 12 >= 72 ? '′' : '');
 
 export const midiToFreq = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
 export const freqToMidiFloat = (f) => 69 + 12 * Math.log2(f / 440);

@@ -89,13 +89,17 @@ export class FreeScene {
     const iy = y + 58 + 2 * (ch + gap) + 4;
     const few = sel.size < STAR_MIN_NOTES;
     const warn = this.warnT != null && this.t - this.warnT < 1.5;
-    icon(g, 'info', x + 34, iy + 12, 18, few || warn ? C.bad : C.muted);
-    text(g, !sel.size ? 'Kies minstens één noot.' : few ? `Kies minstens ${STAR_MIN_NOTES} noten om sterren te verdienen.` : `${sel.size} noten gekozen. Je sterren tellen mee. Er zijn minder munten dan op de reis en geen poortwachters.`,
-      x + 52, iy + 13, { size: 14, weight: 800, color: few || warn ? C.bad : C.muted, align: 'left', maxW: w - 80 });
+    const bad = (few && !S.settings.noGuitar) || warn;
+    icon(g, 'info', x + 34, iy + 12, 18, bad ? C.bad : C.muted);
+    const tap = S.settings.noGuitar;
+    text(g, !sel.size ? 'Kies minstens één noot.' : tap ? `${sel.size} ${sel.size === 1 ? 'noot' : 'noten'} gekozen. Zonder gitaar tik je op de juiste noot; je sterren tellen dan niet mee.`
+      : few ? `Kies minstens ${STAR_MIN_NOTES} noten om sterren te verdienen.` : `${sel.size} noten gekozen. Je sterren tellen mee. Er zijn minder munten dan op de reis en geen poortwachters.`,
+      x + 52, iy + 13, { size: 14, weight: 800, color: bad ? C.bad : C.muted, align: 'left', maxW: w - 80 });
 
-    // levens + start
-    const by = y + h - 82;
-    ui.choice('f:lives', x + 20, by + 4, Math.min(430, w - 300), 62, 'Levens', LIVES, S.settings.lives, (v) => { S.settings.lives = v; persist(); }, { labelW: 100, color: C.pink });
+    // levens + zonder gitaar + start
+    const by = y + h - 82, room = w - 40 - 240, lw = Math.round(room * 0.55);
+    ui.choice('f:lives', x + 20, by + 4, lw, 62, 'Levens', LIVES, S.settings.lives, (v) => { S.settings.lives = v; persist(); }, { labelW: 90, color: C.pink });
+    ui.toggle('f:nog', x + 30 + lw, by + 4, room - lw - 10, 62, 'Zonder gitaar', S.settings.noGuitar, (v) => { S.settings.noGuitar = v; persist(); }, { sub: 'tik de juiste noot aan' });
     ui.button('f:play', x + w - 250, by, 230, 70, 'Spelen', { icon: 'play', primary: true, size: 30, onClick: () => this.play(), disabled: !sel.size, sound: 'silent' });
   }
 }
