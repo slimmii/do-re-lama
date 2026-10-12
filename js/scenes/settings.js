@@ -6,6 +6,7 @@ import { S, persist, resetAll, TEST } from '../store.js';
 import { mic, calibrate, unlock } from '../audio.js';
 import { solfege } from '../notes.js';
 import { exportCode, importCode } from '../sync.js';
+import { VOUCHER_LEN, isVoucher, redeemVoucher } from '../vouchers.js';
 import { isFullscreen, canFullscreen, toggleFullscreen } from '../engine.js';
 import { dimScreen } from './common.js';
 
@@ -14,6 +15,7 @@ const TABS = [
   { id: 'mic', name: 'Microfoon', icon: 'mic' },
   { id: 'av', name: 'Geluid & beeld', icon: 'sound' },
   { id: 'data', name: 'Gegevens', icon: 'copy' },
+  { id: 'bon', name: 'Cadeaubon', icon: 'star' },
 ];
 const LIVES = [{ label: '1', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 }, { label: '5', value: 5 }, { label: '10', value: 10 }, { label: '∞', value: 0 }];
 const TOL = [{ label: 'Makkelijk', value: 0.28 }, { label: 'Normaal', value: 0.18 }, { label: 'Streng', value: 0.1 }];
@@ -30,13 +32,17 @@ export class SettingsScene {
     this.msg = null; // {text, ok}
     this.calib = null; // {ctl, status}
     this.wipe = 0;
+    this.bon = ''; // getypte cijfers van de cadeaubon
   }
 
   enter() {
     this.onPaste = (e) => {
-      if (this.tab !== 'data') return;
+      if (this.tab !== 'data' && this.tab !== 'bon') return;
       const s = e.clipboardData?.getData('text');
-      if (s) { e.preventDefault(); this.importText(s); }
+      if (!s) return;
+      e.preventDefault();
+      if (isVoucher(s)) { this.tab = lastTab = 'bon'; this.bon = s.replace(/\D/g, ''); this.redeem(); }
+      else this.importText(s);
     };
     addEventListener('paste', this.onPaste);
     mic.refreshDevices();
@@ -50,7 +56,11 @@ export class SettingsScene {
   back() { app.engine.pop(this); }
 
   key(e) {
-    if (e.code === 'Escape') return false;
+    if (this.tab !== 'bon' || e.metaKey || e.ctrlKey || e.altKey) return false;
+    const d = /^(?:Digit|Numpad)(\d)$/.exec(e.code);
+    if (d) { this.bonKey(d[1]); ui.sound('tick'); return true; }
+    if (e.code === 'Backspace') { this.bonKey('del'); ui.sound('tick'); return true; }
+    if ((e.code === 'Enter' || e.code === 'NumpadEnter') && this.bon.length === VOUCHER_LEN) { this.redeem(); return true; }
     return false;
   }
 
@@ -76,6 +86,25 @@ export class SettingsScene {
       const r = importCode(S.wallet, s.trim(), S.journey, S.house);
       persist(true);
       this.msg = { text: `Gelukt! ${r.added} ${r.added === 1 ? 'nieuw spulletje' : 'nieuwe spulletjes'}${r.gained ? `, ${r.gained} munten erbij` : ''}${r.stages > 0 ? ` en ${r.stages} ${r.stages === 1 ? 'landschap' : 'landschappen'} verder op de reis` : ''}.`, ok: true };
+      ui.sound('buy');
+    } catch (e) {
+      this.msg = { text: e.message, ok: false };
+      ui.sound('error');
+    }
+  }
+
+  // ---------- cadeaubon ----------
+  bonKey(k) {
+    if (k === 'del') this.bon = this.bon.slice(0, -1);
+    else if (this.bon.length < VOUCHER_LEN) this.bon += k;
+    if (this.msg && !this.msg.ok) this.msg = null;
+  }
+  redeem() {
+    try {
+      const coins = redeemVoucher(S.wallet, this.bon);
+      persist(true);
+      this.msg = { text: `Hoera! Je krijgt ${coins} munten. Goed gedaan in de muziekschool!`, ok: true };
+      this.bon = '';
       ui.sound('buy');
     } catch (e) {
       this.msg = { text: e.message, ok: false };
@@ -145,6 +174,7 @@ export class SettingsScene {
       R(58, (x, y, w) => ui.toggle('s:sfx', x, y, w, 58, 'Geluidjes', st.sfx, (v) => this.set('sfx', v), { sub: 'in de menu’s en in de boomhut (niet tijdens het gitaarspel)' })),
       ...(canFullscreen() ? [R(58, (x, y, w) => ui.toggle('s:full', x, y, w, 58, 'Volledig scherm', isFullscreen(), () => toggleFullscreen(), { sub: 'of druk op F' }))] : []),
     ];
+    if (this.tab === 'bon') return this.bonRows(R);
     // gegevens
     return [
       R(96, (x, y, w) => {
@@ -158,13 +188,7 @@ export class SettingsScene {
         ui.button('s:mk', x, y, bw, 52, 'Code maken', { icon: 'copy', variant: 'blue', size: 18, onClick: () => this.makeCode() });
         ui.button('s:ps', x + bw + 12, y, bw, 52, 'Code plakken', { icon: 'paste', variant: 'green', size: 18, onClick: () => this.pasteCode() });
       }),
-      ...(this.msg ? [R(this.msgH ?? 50, (x, y, w) => {
-        const lines = wrap(g, this.msg.text, w - 50, 15, 800);
-        this.msgH = lines.length * 20 + 22;
-        rr(g, x, y, w, this.msgH, 12); g.fillStyle = this.msg.ok ? '#e2f6e6' : '#fde4e4'; g.fill();
-        icon(g, this.msg.ok ? 'check' : 'info', x + 22, y + this.msgH / 2, 20, this.msg.ok ? C.greenD : C.bad);
-        lines.forEach((l, i) => text(g, l, x + 42, y + 21 + i * 20, { size: 15, weight: 800, color: C.text, align: 'left' }));
-      })] : []),
+      ...(this.msg ? [this.msgRow(R)] : []),
       ...(this.code ? [R(this.codeH ?? 60, (x, y, w) => {
         const chunk = Math.floor((w - 24) / 8.2), lines = [];
         for (let i = 0; i < this.code.length; i += chunk) lines.push(this.code.slice(i, i + chunk));
@@ -183,6 +207,51 @@ export class SettingsScene {
           } });
       }),
     ];
+  }
+
+  // Cadeaubon: 8 cijfers intikken (met de knoppen of het toetsenbord) en inwisselen voor munten.
+  bonRows(R) {
+    const g = ui.g, full = this.bon.length === VOUCHER_LEN;
+    return [
+      R(76, (x, y, w) => {
+        rr(g, x, y, w, 76, 14); g.fillStyle = 'rgba(255,255,255,.7)'; g.fill();
+        text(g, 'Heb je een cadeaubon?', x + 16, y + 22, { size: 18, color: C.text, align: 'left' });
+        const lines = wrap(g, 'Tik de 8 cijfers van je bon in en wissel hem in voor munten. Elke bon werkt maar één keer.', w - 32, 14, 700);
+        lines.forEach((l, i) => text(g, l, x + 16, y + 46 + i * 18, { size: 14, weight: 700, color: C.muted, align: 'left' }));
+      }),
+      R(64, (x, y, w) => { // de vakjes met de cijfers
+        const bw = Math.min(46, (w - 40) / VOUCHER_LEN - 6), gap = 6, mid = 18;
+        let bx = x + (w - (bw + gap) * VOUCHER_LEN + gap - mid) / 2;
+        for (let i = 0; i < VOUCHER_LEN; i++) {
+          if (i === VOUCHER_LEN / 2) bx += mid;
+          const cur = i === this.bon.length && Math.sin(this.t * 8) > 0;
+          rr(g, bx, y + 4, bw, 56, 10); g.fillStyle = '#fff'; g.fill();
+          g.lineWidth = cur ? 3.5 : 2; g.strokeStyle = cur ? C.purple : C.paperLine; g.stroke();
+          if (this.bon[i]) title(g, this.bon[i], bx + bw / 2, y + 33, 28, C.gold);
+          bx += bw + gap;
+        }
+      }),
+      R(112, (x, y, w) => { // cijferknoppen: 1-5 en 6-0, met wissen
+        const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+        const kw = (w - 5 * 8 - 70) / 5;
+        keys.forEach((k, i) => ui.button('s:bk' + k, x + (i % 5) * (kw + 8), y + Math.floor(i / 5) * 56, kw, 48, k,
+          { variant: 'paper', size: 22, disabled: full, onClick: () => this.bonKey(k) }));
+        ui.button('s:bkdel', x + w - 70, y, 70, 104, '', { icon: 'back', variant: 'pink', iconSize: 26, disabled: !this.bon, onClick: () => this.bonKey('del') });
+      }),
+      R(56, (x, y, w) => ui.button('s:bon', x, y, w, 52, 'Inwisselen', { icon: 'star', variant: 'gold', size: 20, disabled: !full, primary: true, onClick: () => this.redeem() })),
+      ...(this.msg ? [this.msgRow(R)] : []),
+    ];
+  }
+
+  msgRow(R) {
+    const g = ui.g;
+    return R(this.msgH ?? 50, (x, y, w) => {
+      const lines = wrap(g, this.msg.text, w - 50, 15, 800);
+      this.msgH = lines.length * 20 + 22;
+      rr(g, x, y, w, this.msgH, 12); g.fillStyle = this.msg.ok ? '#e2f6e6' : '#fde4e4'; g.fill();
+      icon(g, this.msg.ok ? 'check' : 'info', x + 22, y + this.msgH / 2, 20, this.msg.ok ? C.greenD : C.bad);
+      lines.forEach((l, i) => text(g, l, x + 42, y + 21 + i * 20, { size: 15, weight: 800, color: C.text, align: 'left' }));
+    });
   }
 
   micRow(x, y, w) {
