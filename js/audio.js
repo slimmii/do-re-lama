@@ -3,6 +3,7 @@
 import { PitchDetector } from './pitch.js';
 import { S } from './store.js';
 import { GAME_MIDIS } from './notes.js';
+import { devlog } from './devlog.js';
 
 let ctx = null;
 export function audioCtx() {
@@ -163,19 +164,28 @@ export const mic = {
     d.deviceId = S.settings.micId;
     d.setAllowed(S.settings.onlyGameNotes ? GAME_MIDIS : []);
     d.setMinFreq(this.tuning ? TUNE_MIN_HZ : 90);
+    let lvl = { max: 0, midi: null, since: 0 }; // logboek: om de seconde het luidste wat er was
     d.onFrame = (f) => {
       this.level = f.level;
       if (f.midi != null) { this.midi = f.midi; this.cents = f.cents; this.heardAt = this.freqAt = performance.now(); this.freq = f.freq; }
       else if (f.level < 0.05) this.midi = null;
+      if (devlog.on) {
+        if (f.level > lvl.max) lvl = { ...lvl, max: f.level, midi: f.midi };
+        if (f.time - lvl.since > 1) {
+          if (lvl.max > 0.02) devlog.write('niveau', { t: +f.time.toFixed(2), max: +lvl.max.toFixed(2), midi: lvl.midi });
+          lvl = { max: 0, midi: null, since: f.time };
+        }
+      }
     };
-    d.onNote = (ev) => this.emit(ev);
-    d.debug = this.debug;
-    d.onDebug = (m) => { this.debugLog.push(m); if (this.debugLog.length > 12) this.debugLog.shift(); };
+    d.onNote = (ev) => { devlog.write('noot', ev); this.emit(ev); };
+    d.debug = this.debug || devlog.on;
+    d.onDebug = (m) => { devlog.write('detector', m); this.debugLog.push(m); if (this.debugLog.length > 12) this.debugLog.shift(); };
     try {
       await d.start();
       this.detector = d;
       this.label = d.label;
       this.error = null;
+      devlog.write('microfoon', { naam: d.label, sampleRate: c.sampleRate, sens: d.sensitivity, latency: d.latency, echo: d.echoCancellation, enkelSpelnoten: !!S.settings.onlyGameNotes, stemmen: this.tuning });
       this.refreshDevices(); // na de toestemming kent de browser ook de namen
       return true;
     } catch (e) {
@@ -200,7 +210,7 @@ export const mic = {
   },
   setExpect(midis) { this.detector?.setExpect(midis); },
   setTuning(on) { this.tuning = on; this.detector?.setMinFreq(on ? TUNE_MIN_HZ : 90); },
-  setDebug(on) { this.debug = on; this.debugLog = []; if (this.detector) this.detector.debug = on; },
+  setDebug(on) { this.debug = on; this.debugLog = []; if (this.detector) this.detector.debug = on || devlog.on; },
   applySettings() {
     const d = this.detector;
     if (!d) return;

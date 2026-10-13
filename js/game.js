@@ -13,6 +13,7 @@ import { loadLlama, drawLlama, drawParticle, trailParticles, trailRate } from '.
 import { World, MONSTERS, BOSS_FRAMES } from './lama-world.js';
 import { drawClef, diatonic, E4, B4, SP } from './staff.js';
 import { FONT } from './draw.js';
+import { devlog } from './devlog.js';
 
 // Spelwereld in canvaspixels: 540 hoog, de breedte volgt het scherm (minstens 720).
 export const H = 540;
@@ -28,6 +29,7 @@ const LEAD_BEATS = 4; // zoveel tellen loopt de lama voor het eerste monster kom
 const CONTACT_PX = 34; // het monster raakt de lama als het zo dicht bij is
 const BAR_LATE = CONTACT_PX + 18; // linkerrand van de balk (laatste moment om te spelen)
 const GRACE = 0.15; // s na de botsing waarin een (vertraagd herkende) juiste tokkel nog telt
+const EARLY_GRACE = 0.15; // s vóór de balk waarin een juiste tokkel al telt (wie op de rand speelt, zit er vaak nét voor)
 const JUMP_MARGIN = 20; // px extra lucht achter het monster
 
 // De notenbalk (wolk bovenaan)
@@ -408,6 +410,7 @@ export class LamaGame {
 
   judge(n, ok) {
     if (ok) this.hits++; else this.misses++;
+    devlog.write('oordeel', { t: +this.o.ctx().currentTime.toFixed(3), noot: n.p, midi: soundingMidi(n.p), soort: n.kind, juist: ok, uitslag: n.state, tekst: n.wrongText || '', gespeeld: n.played || null, poort: !!n.boss });
     this.onJudge?.(n.p, ok, n);
   }
 
@@ -462,10 +465,15 @@ export class LamaGame {
     const trace = { t: ev.time, midi: ev.midi, want: soundingMidi(tgt.p), d, verdict: '' };
     this.trace.push(trace);
     if (this.trace.length > 12) this.trace.shift();
+    // logboek: pas na de beslissing schrijven (verdict is dan ingevuld); de regel zelf blijft hetzelfde voorwerp
+    queueMicrotask(() => devlog.write('spel', { t: +trace.t.toFixed(3), midi: ev.midi, aanslag: ev.attack !== false, nieuw: ev.fresh ?? null, noot: tgt.p, wil: trace.want, soort: tgt.kind, px: Math.round(d), oordeel: trace.verdict }));
     // Nog niet in de blauwe balk: niet meetellen en niet bestraffen, enkel laten zien.
-    if (d > BAR_LATE + this.barW()) {
+    // (De juiste noot nét voor de balk telt wel: anders wordt ze weggegooid en is het daarna 'te laat'.)
+    const early = d - (BAR_LATE + this.barW());
+    const right = ev.midi === soundingMidi(tgt.p);
+    if (early > 0 && !(right && early <= EARLY_GRACE * this.speed())) {
       trace.verdict = 'te vroeg';
-      if (ev.attack !== false) tgt.earlyUntil = now + 0.6;
+      if (ev.attack !== false) { tgt.earlyUntil = now + 0.6; tgt.earlyRight = right; }
       return;
     }
     // Voorbij de balk en het monster is al bij de lama: te laat, het gaat botsen.
@@ -498,6 +506,8 @@ export class LamaGame {
     // Alleen een duidelijke nieuwe aanslag kan fout zijn: geen nagalm, geen dubbele detectie van de vorige noot.
     if (ev.attack === false) { trace.verdict = 'nagalm'; return; }
     if (this.lastHit && ev.midi === this.lastHit.midi && ev.time - this.lastHit.time < 0.3) { trace.verdict = 'dubbel'; return; }
+    // De juiste noot kwam al, maar te vroeg: wat de microfoon daarna nog hoort (nagalm, tik) is geen fout.
+    if (tgt.earlyRight && now < tgt.earlyUntil) { trace.verdict = 'na te vroege juiste'; return; }
     tgt.state = 'wrong';
     tgt.played = solfegeMidi(ev.midi);
     tgt.wrongText = `fout: ${tgt.played}`;

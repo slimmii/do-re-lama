@@ -6,6 +6,7 @@ import { S, persist, TEST } from './store.js';
 import { STAGES, GATE_HITS, isLastStage, accuracy, ready, advance, fastForward } from './lama-journey.js';
 import { PlayScene } from './scenes/play.js';
 import { mic } from './audio.js';
+import { devlog } from './devlog.js';
 
 const log = (msg) => console.log(`%c🦙 ${msg}`, 'color:#b07cff;font-weight:bold');
 const play = () => app.engine.stack.find((s) => s instanceof PlayScene);
@@ -20,6 +21,8 @@ const dev = {
       'dev.munten(n)': 'n munten erbij',
       'dev.honger(n)': 'buikje van de lama op n zetten (0 = honger, 1 = vol)',
       'dev.mic(aan)': 'overlay in het spel: wat de microfoon per aanslag hoorde en wat het spel ermee deed',
+      "dev.notitie('tekst')": 'eigen regel in het logboek, bv. "nu speel ik sol mi si"',
+      'dev.logboek()': 'waar het logboek staat; zonder dev-server: download het',
     });
     if (!TEST) log('Let op: zonder ?test in de adresbalk wordt alles bewaard.');
   },
@@ -82,6 +85,18 @@ const dev = {
   mic(aan = true) {
     mic.setDebug(!!aan);
     log(aan ? 'Microfoon-overlay aan: speel en kijk onderaan het spel mee.' : 'Microfoon-overlay uit.');
+  },
+
+  notitie(tekst = '') {
+    if (!devlog.on) return log('Het logboek staat uit (enkel bij npm run dev, of met ?log in de adresbalk).');
+    devlog.write('notitie', { tekst: String(tekst) });
+    log(`Genoteerd: ${tekst}`);
+  },
+
+  logboek() {
+    if (!devlog.on) return log('Het logboek staat uit (enkel bij npm run dev, of met ?log in de adresbalk).');
+    if (devlog.server) { devlog.flush(); return log(`Het logboek staat in ${devlog.file} (${devlog.lines.length} regels). Lezen: node tools/logboek.mjs`); }
+    log(`Gedownload: ${devlog.download()} (${devlog.lines.length} regels).`);
   },
 };
 dev.help = dev.hulp;

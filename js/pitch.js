@@ -1,4 +1,5 @@
 // Microfoon-toonhoogteherkenning. Het rekenwerk zit in detector-worklet.js (audiothread).
+import { devlog } from './devlog.js';
 
 export class PitchDetector {
   constructor(ctx) {
@@ -25,6 +26,7 @@ export class PitchDetector {
     const key = midis.join(',');
     if (key === this._expectKey) return;
     this._expectKey = key;
+    devlog.write('verwacht', { t: +this.ctx.currentTime.toFixed(3), midis: [...midis] });
     this.node?.port.postMessage({ expect: midis });
   }
 

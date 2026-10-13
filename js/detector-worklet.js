@@ -509,7 +509,9 @@ export class DetectorCore {
       const yinOk = strictY != null && (this.ok(strictY) || [12, 19, 24].some((k) => this.ok(strictY + k)));
       const yinNew = ana && yinOk && ana.newFrac(strictY) >= 0.3 ? strictY : null;
       // 2. Anders: is het een van de noten die de app nu verwacht? (helpt als er snaren naklinken)
-      const hit = ana && yinNew == null ? this.expect.find((e) => ana.confirms(e, y)) : undefined;
+      //    (Niet als er helemaal niets te horen valt: geen enkele YIN-meting én geen nieuwe toon met hoorbare
+      //     grondtoon. Dan is het een tik of ruis, en mag 'verwacht' er geen noot van maken.)
+      const hit = ana && yinNew == null && (y != null || ana.best != null) ? this.expect.find((e) => ana.confirms(e, y)) : undefined;
       if (ana || (age > 0.25 && v.length)) {
         let m, sub = null;
         // YIN hoorde een ondertoon (octaaf of octaaf + kwint lager) van een verwachte noot die echt nieuw klinkt
@@ -531,16 +533,20 @@ export class DetectorCore {
           if (up != null) { sub = m; m = up; }
         }
         if (m != null && !this.ok(m)) m = null; // geen noot uit het spel (bv. iemand die zingt)
+        // De klap van de klankkast (100-170 Hz) zonder dat YIN ook maar één keer een toon hoorde: dat is geen
+        // gespeelde do/re/mi. Enkel als die lage noot verwacht wordt, geloven we ze (dan hoort YIN ze normaal ook).
+        const klap = m != null && y == null && m <= 52 && !this.expect.includes(m);
+        if (klap) m = null;
         // YIN hoort zeker een nieuwe toon die niet in het spel zit: dan telt een andere noot enkel als die zelf
         // echt nieuw klinkt, en niet gewoon een ondertoon of buurnoot van die toon is (anders 'hoort' hij
         // in een gezongen re' de sol een octaaf + kwint lager).
         const foreign = ana && strictY != null && !yinOk && ana.newFrac(strictY) >= 0.3 && ana.harmonic(strictY) ? strictY : null;
         if (m != null && foreign != null && (Math.abs(foreign - m) <= 2 || ana.isOvertoneOf(foreign, m) || !ana.fundNew(m) || !ana.present(m))) m = null;
         if (m == null) {
-          if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y, best: ana?.best, m: 'GEEN' });
+          if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y, best: ana?.best, m: 'GEEN', foreign, klap: klap || undefined, exp: [...this.expect] });
           this.recentAttack = this.pending; this.pending = null; return;
         }
-        if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y, best: ana?.best, ch: this.lastChoose?.join(' '), fy: ana && y != null ? +ana.newFrac(y).toFixed(2) : null, fb: ana?.best != null ? +ana.newFrac(ana.best).toFixed(2) : null, m, sub, hit: underHit ?? hit ?? null });
+        if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y, best: ana?.best, ch: this.lastChoose?.join(' '), fy: ana && y != null ? +ana.newFrac(y).toFixed(2) : null, fb: ana?.best != null ? +ana.newFrac(ana.best).toFixed(2) : null, m, sub, hit: underHit ?? hit ?? null, exp: [...this.expect] });
         this.current = m;
         this.lastEmitted = m;
         // fresh: welk deel van deze toon (0..1) nieuw is bij de aanslag; laag = tik/ruis op een snaar die nog naklonk
@@ -550,6 +556,7 @@ export class DetectorCore {
         this.recentAttack = null; // een eerdere aanslag zonder toon is hiermee voorbij
       } else if (age > 0.4) {
         // Geen duidelijke toon gevonden: onthoud de aanslag, de stabiele toon kan nog volgen.
+        if (this.debug) this.emit({ type: 'debug', t: this.pending.time, votes: [...v], strict: this.pending.votes.length, y: null, best: null, m: 'GEEN TOON', strength: +this.pending.strength.toFixed(1), exp: [...this.expect] });
         this.recentAttack = this.pending;
         this.pending = null;
       }

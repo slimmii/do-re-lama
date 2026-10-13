@@ -4,6 +4,7 @@ import { C, text, title, pill, bar, rr, wrap, icon, star, clamp, ease } from '..
 import { app } from '../app.js';
 import { S, persist } from '../store.js';
 import { audioCtx, click, mic, pluck, sound, sfx, unlock } from '../audio.js';
+import { devlog } from '../devlog.js';
 import { LamaGame, PLAYER_X, GROUND_Y } from '../game.js';
 import { PRACTICE_NOTES, soundingMidi, solfegeMidi, solfegeOf, describePosition } from '../notes.js';
 import {
@@ -147,6 +148,7 @@ export class PlayScene {
     mic.applySettings();
     this.configure();
     this.game.start();
+    devlog.write('start', { spelvorm: this.mode, noten: this.game.pool, bpm: this.game.bpm, balk: this.game.barBeats, levens: this.game.maxLives, toetsenbord: !!S.settings.keyboard, zonderGitaar: this.tap, landschap: this.journey ? S.journey.at : null });
     this.game.say(this.tap ? 'Tik op de noot boven het monster als ze in de blauwe balk staat!' : S.intro ? '' : 'Speel de noot boven het monster als ze in de blauwe balk staat!');
     S.intro = true;
     this.wonStage = false;
