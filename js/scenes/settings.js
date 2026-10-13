@@ -17,7 +17,6 @@ const TABS = [
   { id: 'data', name: 'Gegevens', icon: 'copy' },
   { id: 'bon', name: 'Cadeaubon', icon: 'star' },
 ];
-const LIVES = [{ label: '1', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 }, { label: '5', value: 5 }, { label: '10', value: 10 }, { label: '∞', value: 0 }];
 const TOL = [{ label: 'Makkelijk', value: 0.28 }, { label: 'Normaal', value: 0.18 }, { label: 'Streng', value: 0.1 }];
 const sensLabel = (v) => (v < -0.2 ? 'heel laag' : v < 0.25 ? 'laag' : v < 0.65 ? 'normaal' : 'hoog');
 
@@ -150,7 +149,6 @@ export class SettingsScene {
     const st = S.settings, g = ui.g;
     const R = (h, draw) => ({ h, draw });
     if (this.tab === 'game') return [
-      R(62, (x, y, w) => ui.choice('s:lives', x, y, w, 62, 'Levens', LIVES, st.lives, (v) => this.set('lives', v), { labelW: 170, color: C.pink, sub: '∞ = onsterfelijk' })),
       R(62, (x, y, w) => ui.slider('s:bpm', x, y, w, 62, 'Snelheid', st.bpm, 15, 90, 5, (v) => this.set('bpm', v), { labelW: 170, fmt: (v) => `${v} /min`, sub: 'noten per minuut (← →)' })),
       R(62, (x, y, w) => ui.choice('s:tol', x, y, w, 62, 'Hoe streng?', TOL, st.tol, (v) => this.set('tol', v), { labelW: 170, sub: 'breedte van de blauwe balk', size: 15 })),
       R(58, (x, y, w) => ui.toggle('s:big', x, y, w, 58, 'Grote notennaam', st.bigName, (v) => this.set('bigName', v), { sub: 'de noot die aan de beurt is, groot in de lucht' })),

@@ -26,7 +26,7 @@ Vercel herkent Vite vanzelf (build `npm run build`, output `dist`). Vercel serve
 - **De reis**: negen landschappen, elk met een nieuwe noot. Speel 30 noten juist (80% raak) en er staat
   een **poortwachter** aan de grens: speel 5 keer de nieuwe noot en je reist verder (+15 munten).
   Bereikte landschappen kan je opnieuw spelen op de kaart.
-- **Vrij oefenen**: kies zelf je noten (bv. wat de leerkracht vraagt). Alle bereikte landschappen wisselen af.
+- **Vrij oefenen**: kies zelf je noten (bv. wat de leerkracht vraagt) en hoeveel levens je wil (1–10 of onsterfelijk). Alle bereikte landschappen wisselen af.
   Minder munten, geen poortwachters; sterren tellen vanaf 3 noten.
   Met **Zonder gitaar** (bv. op een tablet) tik je op de juiste noot uit 3 keuzes (of toets 1 2 3) en hoor je die noot getokkeld; dan geen
   microfoon, een apart record en tellen de sterren niet mee.
@@ -65,7 +65,7 @@ speciale spulletjes.
 
 ## Instellingen
 
-Levens (1–10 of onsterfelijk), snelheid, hoe streng op de maat, grote notennaam, notennamen, vingers (m/i),
+Snelheid, hoe streng op de maat, grote notennaam, notennamen, vingers (m/i),
 metronoom en volume, microfoongevoeligheid, microfoonvertraging (met **meten**), echo-onderdrukking,
 spelen met het toetsenbord, geluidjes, volledig scherm.
 

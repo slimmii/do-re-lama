@@ -13,7 +13,7 @@ export const TEST = new URLSearchParams(location.search).has('test');
 const DEFAULTS = () => ({
   settings: {
     bpm: 30, // noten per minuut
-    lives: 3, // 0 = onsterfelijk
+    lives: 3, // levens bij vrij oefenen (0 = onsterfelijk); op de reis altijd 3
     tol: 0.18, // hoe streng op de maat (breedte van de blauwe balk)
     bigName: true,
     names: false,

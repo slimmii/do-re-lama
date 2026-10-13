@@ -15,6 +15,7 @@ import { fitWorld } from '../backdrop.js';
 import { card, dimScreen, noteChip } from './common.js';
 
 const COINS_JOURNEY = 1 / 2, COINS_FREE = 1 / 9; // gemiddeld 1 op 3 noten een munt, bij vrij oefenen 1 op 10
+const JOURNEY_LIVES = 3; // op de reis altijd 3 levens; de instelling geldt enkel bij vrij oefenen
 const TAP_CHOICES = 3; // zonder gitaar: zoveel knoppen om uit te kiezen
 
 // Zonder gitaar: de juiste noot en een paar andere uit het spel, van laag naar hoog. Blijft vast per noot.
@@ -70,7 +71,8 @@ export class PlayScene {
 
   bestKey() {
     const base = this.journey ? `reis:${S.journey.at}` : [...S.settings.selection].sort().join(',');
-    return base + (S.settings.lives === 3 ? '' : `|${S.settings.lives}`) + (this.tap ? '|tik' : '');
+    const lives = this.journey ? '' : S.settings.lives === 3 ? '' : `|${S.settings.lives}`;
+    return base + lives + (this.tap ? '|tik' : '');
   }
 
   configure() {
@@ -83,7 +85,7 @@ export class PlayScene {
     g.showFingers = st.fingers;
     g.bigName = st.bigName && !this.tap; // zonder gitaar staan daar de keuzeknoppen
     g.keyboard = st.keyboard && !this.tap;
-    g.maxLives = st.lives;
+    g.maxLives = this.journey ? JOURNEY_LIVES : st.lives;
     g.outfit = S.wallet.outfit;
     g.fresh = j.fresh;
     g.coinChance = this.journey ? COINS_JOURNEY : COINS_FREE;
