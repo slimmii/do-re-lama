@@ -92,14 +92,12 @@ export class TuneScene {
       this.lastFreqAt = mic.freqAt;
       const m = matchString(mic.freq, this.pin);
       if (m) {
+        this.heardT = this.t; // elke meting telt als 'gehoord', ook de eerste: anders wist STALE de lijst voor ze vol is
         this.hist.push({ n: m.string.n, cents: m.cents });
         if (this.hist.length > 5) this.hist.shift();
         const n = this.hist[this.hist.length - 1].n;
         const same = this.hist.filter((h) => h.n === n).map((h) => h.cents).sort((a, b) => a - b);
-        if (same.length >= 2) {
-          this.cur = { string: TUNE_STRINGS.find((s) => s.n === n), cents: same[same.length >> 1] };
-          this.heardT = this.t;
-        }
+        if (same.length >= 2) this.cur = { string: TUNE_STRINGS.find((s) => s.n === n), cents: same[same.length >> 1] };
       }
     }
     if (this.t - this.heardT > STALE) { this.cur = null; this.hist = []; }

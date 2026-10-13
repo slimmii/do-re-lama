@@ -67,6 +67,6 @@ export class TitleScene {
     walletPills(g, VW);
     fullscreenButton('t:full', 38, 36);
     ui.iconButton('t:snd', 92, 36, 44, S.settings.sfx ? 'sound' : 'mute', { onClick: () => { S.settings.sfx = !S.settings.sfx; persist(); } });
-    text(g, TEST ? 'TESTMODUS · niets wordt bewaard' : 'een Simisol-spel', VW - 16, VH - 16, { size: 14, weight: 800, color: 'rgba(255,255,255,.75)', align: 'right', stroke: 'rgba(29,16,48,.6)', strokeW: 4 });
+    text(g, TEST ? 'TESTMODUS · niets wordt bewaard' : `${__COMMIT__} · ${__BUILT__}`, VW - 16, VH - 16, { size: 14, weight: 800, color: 'rgba(255,255,255,.75)', align: 'right', stroke: 'rgba(29,16,48,.6)', strokeW: 4 });
   }
 }

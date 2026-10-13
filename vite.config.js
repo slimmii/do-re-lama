@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { appendFile, mkdir } from 'node:fs/promises';
+import { execSync } from 'node:child_process';
 
 // Logboek voor de ontwikkelaar (js/devlog.js): het spel stuurt tijdens `npm run dev` regels naar /__devlog en die
 // komen in logs/<sessie>.jsonl terecht. Lezen: node tools/logboek.mjs
@@ -30,9 +31,20 @@ function devlogPlugin() {
   };
 }
 
+// Bouwstempel voor het titelscherm: korte commit-hash en het moment van bouwen (bij `npm run dev` is dat de start van de server).
+function commitHash() {
+  try { return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev'; } catch { return 'dev'; }
+}
+function bouwTijd() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}-${p(d.getMonth() + 1)}-${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 // De beelden en het lettertype staan in public/: de code laadt ze bij naam (img/lama/...), dus ze moeten ongewijzigd mee.
 export default defineConfig({
   plugins: [devlogPlugin()],
+  define: { __COMMIT__: JSON.stringify(commitHash()), __BUILT__: JSON.stringify(bouwTijd()) },
   server: { port: 8770 },
   preview: { port: 8770 },
 });
