@@ -551,7 +551,9 @@ export class DetectorCore {
         this.lastEmitted = m;
         // fresh: welk deel van deze toon (0..1) nieuw is bij de aanslag; laag = tik/ruis op een snaar die nog naklonk
         const fresh = ana && m != null ? +ana.newFrac(m).toFixed(2) : null;
-        this.emit({ type: 'note', time: this.pending.time, midi: m, attack: true, strength: this.pending.strength, fresh });
+        // yin: hoeveel zekere YIN-metingen deze noot hoorden; 0 = enkel uit het spectrum of de verwachting afgeleid (twijfel)
+        const yin = this.pending.votes.filter((x) => x === m).length;
+        this.emit({ type: 'note', time: this.pending.time, midi: m, attack: true, strength: this.pending.strength, fresh, yin });
         this.pending = null;
         this.recentAttack = null; // een eerdere aanslag zonder toon is hiermee voorbij
       } else if (age > 0.4) {
@@ -567,7 +569,7 @@ export class DetectorCore {
       if (ra && now - ra.at < 0.8) {
         this.current = m;
         this.lastEmitted = m;
-        this.emit({ type: 'note', time: ra.time, midi: m, attack: true, strength: ra.strength });
+        this.emit({ type: 'note', time: ra.time, midi: m, attack: true, strength: ra.strength, yin: this.stable.count });
         return;
       }
       // Toonwissel zonder aanslag. Negeer het als het de nagalm van de vorige noot is:

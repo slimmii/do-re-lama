@@ -19,6 +19,7 @@ const DEFAULTS = () => ({
     names: false,
     fingers: true,
     metro: true,
+    waitOnDoubt: false, // twijfelt de microfoon over een foute noot: alles staat stil en je mag nog eens (anders: fout)
     metroVol: 0.8,
     sfx: true,
     sens: 0.5,

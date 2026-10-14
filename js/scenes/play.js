@@ -85,6 +85,7 @@ export class PlayScene {
     g.bpm = st.bpm;
     g.setBarBeats(Math.round(st.tol * 2.5 * 100) / 100);
     g.metro = st.metro;
+    g.waitOnDoubt = st.waitOnDoubt;
     g.showNames = st.names;
     g.showFingers = st.fingers;
     g.bigName = st.bigName && !this.tap; // zonder gitaar staan daar de keuzeknoppen
@@ -106,6 +107,8 @@ export class PlayScene {
     g.bpm = st.bpm;
     g.setBarBeats(Math.round(st.tol * 2.5 * 100) / 100);
     g.metro = st.metro; g.showNames = st.names; g.showFingers = st.fingers; g.bigName = st.bigName && !this.tap; g.keyboard = st.keyboard && !this.tap;
+    g.waitOnDoubt = st.waitOnDoubt;
+    if (!g.waitOnDoubt) g.release(); // uitgezet tijdens het wachten: gewoon verder
     g.outfit = S.wallet.outfit;
     mic.applySettings();
   }

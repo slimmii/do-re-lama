@@ -32,6 +32,11 @@ const BAR_LATE = CONTACT_PX + 18; // linkerrand van de balk (laatste moment om t
 const GRACE = 0.15; // s na de botsing waarin een (vertraagd herkende) juiste tokkel nog telt
 const EARLY_GRACE = 0.15; // s vóór de balk waarin een juiste tokkel al telt (wie op de rand speelt, zit er vaak nét voor)
 const JUMP_MARGIN = 20; // px extra lucht achter het monster
+// Twijfel (instelling 'Wachten bij twijfel'): een foute noot telt pas als de herkenning er zeker van is (genoeg
+// YIN-metingen, grotendeels nieuw geluid). Anders blijft alles staan met een '?' en mag je nog eens proberen.
+const SURE_YIN = 3;
+const SURE_FRESH = 0.5;
+const HOLD_HINT = 5; // s wachten: dan zegt de lama waar je de noot vindt
 
 // De notenbalk (wolk bovenaan)
 export const PANEL = { y: 5, h: 166 };
@@ -60,6 +65,7 @@ export class LamaGame {
     this.pool = ['G4', 'B4', 'E5'];
     this.bpm = 30;
     this.metro = true;
+    this.waitOnDoubt = false; // twijfel over een foute noot: stilstaan en laten herproberen (anders telt ze gewoon fout)
     this.showNames = false;
     this.showFingers = true;
     this.bigName = true; // naam van de noot die aan de beurt is, groot in de lucht
@@ -157,6 +163,7 @@ export class LamaGame {
     this.bossCoins = 0;
     this.boss = null;
     this.lastHit = null;
+    this.hold = null; // {n, at, t, hinted}: twijfel over een foute noot; de wereld staat stil tot je opnieuw speelt
     this.player = { y: GROUND_Y, jump: null, queue: [], landT: 1, walk: 0, hurt: 0 }; // queue: noten om over te springen
     this.particles = [];
     this.floaters = [];
@@ -306,6 +313,7 @@ export class LamaGame {
   stop() {
     this.running = false;
     this.paused = false;
+    this.hold = null;
     this.lastT = null;
     this.o.setExpect([]);
   }
@@ -327,10 +335,20 @@ export class LamaGame {
     for (const n of this.notes) { if (n.contactAt != null) n.contactAt += d; if (n.earlyUntil) n.earlyUntil += d; }
     for (const h of this.hist) h.t += d;
     if (this.lastHit) this.lastHit.time += d;
+    if (this.hold) this.hold.at += d;
     this.paused = false;
     this.running = true;
     this.lastT = now;
     this.sendExpect();
+  }
+
+  // Einde van de twijfel: de wereld loopt weer. Tijdstippen die tijdens het stilstaan doorliepen, schuiven mee.
+  release() {
+    const h = this.hold;
+    if (!h) return;
+    this.hold = null;
+    const d = this.o.ctx().currentTime - h.at;
+    for (const n of this.notes) { if (n.contactAt != null) n.contactAt += d; if (n.earlyUntil) n.earlyUntil += d; }
   }
 
   gameOver() {
@@ -367,7 +385,13 @@ export class LamaGame {
     const pl = this.player;
     pl.hurt = Math.max(0, pl.hurt - dt);
 
-    if (this.running) {
+    if (this.running && this.hold) {
+      this.hold.t += dt;
+      if (this.hold.t > HOLD_HINT && !this.hold.hinted) {
+        this.hold.hinted = true;
+        this.say(`Speel ${solfegeOf(this.hold.n.p)}: ${describePosition(this.hold.n.p)}.`);
+      }
+    } else if (this.running) {
       const next = this.beat + (dt * this.bpm) / 60;
       // metronoom: tik telkens een noot in het midden van de blauwe balk staat
       const mid = (BAR_LATE + this.barW() / 2) / this.pxb;
@@ -419,7 +443,7 @@ export class LamaGame {
       else b.x = Math.max(this.bossX(), b.x - 160 * dt); // komt binnen en blijft dan staan
     }
     if (this.banner) { this.banner.life -= dt; if (this.banner.life <= 0) this.banner = null; }
-    if (!this.over) pl.walk += dt * Math.max(0.5, this.running ? this.bpm / 30 : 0.5);
+    if (!this.over && !this.hold) pl.walk += dt * Math.max(0.5, this.running ? this.bpm / 30 : 0.5);
   }
 
   // Luchttijd: de lama blijft in de lucht tot het monster van noot n helemaal onder haar door is.
@@ -540,6 +564,7 @@ export class LamaGame {
     // (Net na de balk, maar vóór de botsing, telt nog: een kleine onzichtbare marge.)
     if (d < CONTACT_PX && ev.midi === soundingMidi(tgt.p)) { trace.verdict = 'te laat'; return; }
     trace.verdict = ev.midi === soundingMidi(tgt.p) ? 'raak' : 'fout';
+    if (ev.midi === soundingMidi(tgt.p)) this.release();
     if (ev.midi === soundingMidi(tgt.p) && tgt.kind === 'coin') { // springen om de munt te vangen, geen punt
       tgt.state = 'hit';
       this.judge(tgt, true);
@@ -568,6 +593,16 @@ export class LamaGame {
     if (this.lastHit && ev.midi === this.lastHit.midi && ev.time - this.lastHit.time < 0.3) { trace.verdict = 'dubbel'; return; }
     // De juiste noot kwam al, maar te vroeg: wat de microfoon daarna nog hoort (nagalm, tik) is geen fout.
     if (tgt.earlyRight && now < tgt.earlyUntil) { trace.verdict = 'na te vroege juiste'; return; }
+    // Niet zeker wat er klonk (een slordige tokkel): niet bestraffen, maar stilstaan en laten herproberen.
+    // (Het toetsenbord stuurt geen yin mee: dat is altijd zeker.)
+    const sure = ev.yin == null || (ev.yin >= SURE_YIN && (ev.fresh == null || ev.fresh >= SURE_FRESH));
+    if (this.waitOnDoubt && !sure) {
+      trace.verdict = 'twijfel';
+      if (!this.hold) this.hold = { n: tgt, at: now, t: 0, hinted: false };
+      this.say(`Hmm, was dat ${solfegeOf(tgt.p)}? Speel nog eens!`);
+      return;
+    }
+    this.release();
     tgt.state = 'wrong';
     tgt.played = solfegeMidi(ev.midi);
     tgt.wrongText = `fout: ${tgt.played}`;
@@ -719,7 +754,8 @@ export class LamaGame {
       g.fillText(solfegeOf(n.p), x, base + 38);
     }
     const early = n.earlyUntil > now && !n.state;
-    const tag = n.state === 'wrong' || n.state === 'missed' ? n.wrongText : early ? 'wacht…' : '';
+    const held = this.hold?.n === n;
+    const tag = n.state === 'wrong' || n.state === 'missed' ? n.wrongText : held ? 'nog eens?' : early ? 'wacht…' : '';
     if (tag) {
       g.font = FONT(13, 800);
       g.fillStyle = n.state ? '#dc3b3b' : held ? '#c98a00' : '#7d7067';
@@ -784,6 +820,7 @@ export class LamaGame {
     g.drawImage(im, -w / 2, -h / 2, w, h);
     g.restore();
     if (n.state === 'wrong') label(g, '!', x, cy - h / 2 - 16, 30, '#ff5a5a');
+    else if (this.hold?.n === n) label(g, '?', x, cy - h / 2 - 16 - Math.abs(Math.sin(this.hold.t * 4)) * 6, 30, '#ffb400');
   }
 
   // De poortwachter: een groot monster van het volgende landschap als gitaarheld, met levensbolletjes.

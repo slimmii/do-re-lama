@@ -155,6 +155,7 @@ export class SettingsScene {
       R(58, (x, y, w) => ui.toggle('s:names', x, y, w, 58, 'Notennamen bij de noten', st.names, (v) => this.set('names', v), { sub: 'do re mi onder elke noot' })),
       R(58, (x, y, w) => ui.toggle('s:fing', x, y, w, 58, 'Vingers (m / i)', st.fingers, (v) => this.set('fingers', v), { sub: 'welke vinger tokkelt: middelvinger of wijsvinger' })),
       R(58, (x, y, w) => ui.toggle('s:metro', x, y, w, 58, 'Metronoom', st.metro, (v) => this.set('metro', v), { sub: 'tikt als een noot midden in de balk staat' })),
+      R(58, (x, y, w) => ui.toggle('s:doubt', x, y, w, 58, 'Wachten bij twijfel', st.waitOnDoubt, (v) => this.set('waitOnDoubt', v), { sub: 'hoort hij het niet goed? alles staat stil en je mag nog eens' })),
     ];
     if (this.tab === 'mic') return [
       R(70, (x, y, w) => this.micRow(x, y, w)),
