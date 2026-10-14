@@ -20,6 +20,7 @@ import { ShopScene } from './scenes/shop.js';
 import { TreehouseScene } from './scenes/treehouse.js';
 import { TuneScene } from './scenes/tune.js';
 import { GamesScene } from './scenes/games.js';
+import { CatchScene } from './scenes/catch.js';
 import { installDev } from './dev.js';
 
 const engine = new Engine(document.getElementById('game'));
@@ -36,6 +37,7 @@ app.scenes = {
   treehouse: () => new TreehouseScene(),
   tune: () => new TuneScene(),
   games: () => new GamesScene(),
+  catch: () => new CatchScene(),
 };
 ui.onSound = (name) => { if (name !== 'silent') sfx(name); };
 

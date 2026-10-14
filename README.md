@@ -53,6 +53,9 @@ Vercel herkent Vite vanzelf (build `npm run build`, output `dist`). Vercel serve
   regenboogmeter toont of ze te laag of te hoog klinkt; hou ze juist tot de ster vol is. De lama is blij (hartjes in de
   boomhut) zolang de snaren onlangs gestemd zijn: een snaar blijft een halve dag vers en zakt dan in drie dagen weg.
   Een droevige lama loopt trager onder een regenwolkje. Alle snaren juist: feest, en hoogstens eens per dag 3 munten.
+- **Eten vangen** (boomhut › *Spelen*): de zes snaren staan rechtop, elke snaar is een rij. Eten valt uit de lucht
+  langs de snaren; tokkel die losse snaar als het eten in de blauwe balk is en het gaat gratis in de voorraadkast
+  (24 stuks per ronde, goedkoop eten valt vaker). Zonder microfoon tik je op de snaar of druk je 1–6 (1 = hoge mi).
 
 Speel de noot terwijl ze in de **blauwe balk** staat. Fout of te laat: de lama botst en verliest een leven.
 Een **munt** in de lucht? Speel die noot en de lama vangt ze. Met munten koop je in de **winkel** hoedjes,

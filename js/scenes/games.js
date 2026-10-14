@@ -9,6 +9,8 @@ import { card, dimScreen } from './common.js';
 export const LAMA_GAMES = [
   { id: 'tune', name: 'Gitaar stemmen', sub: 'maak de lama blij', icon: 'note', variant: 'pink', key: 'KeyS',
     open: () => app.scenes.tune(), badge: () => (isSad(happiness(S.tune)) ? '!' : null) },
+  { id: 'catch', name: 'Eten vangen', sub: 'tokkel de snaren, gratis eten', icon: 'apple', variant: 'green', key: 'KeyV',
+    open: () => app.scenes.catch() },
 ];
 
 export class GamesScene {
