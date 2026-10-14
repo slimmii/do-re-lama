@@ -30,6 +30,13 @@ Vercel herkent Vite vanzelf (build `npm run build`, output `dist`). Vercel serve
   Minder munten, geen poortwachters; sterren tellen vanaf 3 noten.
   Met **Zonder gitaar** (bv. op een tablet) tik je op de juiste noot uit 3 keuzes (of toets 1 2 3) en hoor je die noot getokkeld; dan geen
   microfoon, een apart record en tellen de sterren niet mee.
+- **Liedjes** (tabblad in *Vrij oefenen*): een bibliotheek van 47 bekende liedjes (kinderliedjes, kerstliedjes,
+  klassiek), van heel makkelijk naar heel moeilijk, en 21 bekende rock-riffs (Seven Nation Army, Iron Man, Billie Jean, Louie Louie, …)
+  die een paar keer na elkaar komen. Riffs staan een paar tonen hoger dan het origineel: de lage snaren zitten niet in het spel. Een schema toont per liedje welke noten erin zitten (blauw = al
+  gekend op de reis, roze = nog niet) en hoe snel het ritme is. Met *Luisteren* hoor je het liedje. In het spel komen
+  de noten in het ritme van het liedje, met maatstrepen en notenwaarden op de notenbalk: bij korte noten staan de
+  monsters dichter en springt de lama sneller. Het beste % juist per liedje geeft sterren in de lijst.
+  Nieuw liedje: één regel in `RAW` (`js/songs.js`); de moeilijkheid wordt vanzelf berekend.
 - **Lama-boomhut**: de kamer waar de lama uitrust. In het begin staan er enkel een bedje en een tafeltje; in de
   winkel (afdeling *Boomhut*) koop je bedovertrekjes, posters, een spiegel, matjes, stoelen, bloemen,
   gitaren (twee haakjes aan de muur, dus twee tegelijk) en huisdiertjes.
@@ -81,7 +88,7 @@ is alles van jou en wordt niets bewaard.
 - `js/ui.js`: knoppen, schakelaars, schuifregelaars, schuifgebieden, toetsenbordnavigatie (op het canvas)
 - `js/draw.js`: kleuren, tekst, panelen, vector-iconen
 - `js/game.js`: het lama-spel (uit Simisol, nu met de notenbalk op het canvas: `js/staff.js`)
-- `js/scenes/`: laadscherm, titel, reis, vrij oefenen, spel, pauze, instellingen, winkel, boomhut
+- `js/scenes/`: laadscherm, titel, reis, vrij oefenen, liedjes, spel, pauze, instellingen, winkel, boomhut
 - `js/treehouse.js`: de boomhut: plekken in de kamer, de spulletjes en het tekenen. **Iets nieuws toevoegen**:
   zet een beeld met doorzichtige achtergrond in `public/img/lama/boomhut/<id>.webp` en voeg één regel toe aan
   `HOUSE_ITEMS`. Een nieuw bed heeft ook een `<id>_slaap.webp` nodig (hetzelfde bed met de slapende lama erin,

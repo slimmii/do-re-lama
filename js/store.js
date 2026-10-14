@@ -29,8 +29,11 @@ const DEFAULTS = () => ({
     keyboard: false, // spelen met het toetsenbord in plaats van de gitaar
     noGuitar: false, // vrij oefenen zonder gitaar: tik op de juiste noot (3 keuzes)
     selection: [...DEFAULT_SELECTION], // noten bij vrij oefenen
+    freeTab: 'notes', // vrij oefenen: 'notes' (zelf noten kiezen) of 'songs' (liedjesbibliotheek)
   },
   best: {}, // record per spelvorm/combinatie van noten
+  songs: {}, // liedjesbibliotheek: beste % juist per liedje (id, of id|tik zonder gitaar)
+  song: null, // laatst gekozen liedje
   wallet: { coins: 0, owned: [], outfit: {}, imported: [], vouchers: [], gifts: 0 }, // vouchers: ingewisselde cadeaubonnen, gifts: gratis spulletjes nog te kiezen
   house: { owned: [], placed: {} }, // de boomhut: gekochte spulletjes en wat waar staat
   journey: newJourney(),

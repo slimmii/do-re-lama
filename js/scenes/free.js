@@ -1,4 +1,5 @@
 // Vrij oefenen: kies zelf je noten (bv. wat de leerkracht vraagt). Alle bereikte landschappen wisselen af.
+// Het tweede tabblad is de liedjesbibliotheek (songs.js).
 import { ui } from '../ui.js';
 import { C, text, panel, rr, icon, stars as drawStars, clamp, ease } from '../draw.js';
 import { app } from '../app.js';
@@ -6,9 +7,7 @@ import { S, persist } from '../store.js';
 import { PRACTICE_NOTES, FRETBOARD, solfegeOf } from '../notes.js';
 import { STAR_MIN_NOTES, starsOf } from '../lama-journey.js';
 import { miniNote } from '../staff.js';
-import { topBar } from './common.js';
-
-const LIVES = [{ label: '1', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 }, { label: '5', value: 5 }, { label: '10', value: 10 }, { label: '∞', value: 0 }];
+import { topBar, freeTabs, LIVES } from './common.js';
 
 export class FreeScene {
   enter() { app.backdrop.wander(); }
@@ -26,6 +25,7 @@ export class FreeScene {
   play() {
     if (!S.settings.selection.length) { ui.sound('error'); this.warnT = this.t; return; }
     S.journey.mode = 'vrij';
+    S.settings.freeTab = 'notes';
     persist();
     app.engine.go(app.scenes.play({ mode: 'vrij' }));
   }
@@ -44,8 +44,8 @@ export class FreeScene {
     const k = ease.out(clamp(this.t / 0.4, 0, 1));
     g.save(); g.globalAlpha = k; g.translate(0, (1 - k) * 30);
     panel(g, x, y, w, h);
-    text(g, 'Welke noten wil je oefenen?', x + 24, y + 28, { size: 20, color: C.text, align: 'left' });
     g.restore();
+    freeTabs(x + 16, y + 6, 'notes');
 
     // snelkeuzes
     const qy = y + 12, qh = 34;

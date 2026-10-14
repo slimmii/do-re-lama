@@ -7,6 +7,7 @@ import { drawLogo } from './logo.js';
 import { walletPills, fullscreenButton } from './common.js';
 import { STAGES } from '../lama-journey.js';
 import { solfegeOf } from '../notes.js';
+import { songById } from '../songs.js';
 
 let vig = null;
 function vignette() {
@@ -54,7 +55,7 @@ export class TitleScene {
     const next = j.stage < STAGES.length - 1 ? `Stap ${j.stage + 1} van ${STAGES.length} · ${STAGES[j.stage].name}` : 'Je kent alle noten!';
     anim(0, () => ui.button('t:reis', x, y, bw, 66, 'De reis', { icon: 'map', sub: next, primary: true, onClick: () => app.engine.go(app.scenes.journey()) }));
     y += 82;
-    anim(1, () => ui.button('t:vrij', x, y, bw, 62, 'Vrij oefenen', { icon: 'target', variant: 'blue', sub: `Kies zelf je noten · ${S.settings.selection.map(solfegeOf).join(' ')}`.slice(0, 44), onClick: () => app.engine.go(app.scenes.free()) }));
+    anim(1, () => ui.button('t:vrij', x, y, bw, 62, 'Vrij oefenen', { icon: 'target', variant: 'blue', sub: (S.settings.freeTab === 'songs' && songById(S.song) ? `Liedjes · ${songById(S.song).name}` : `Kies zelf je noten · ${S.settings.selection.map(solfegeOf).join(' ')}`).slice(0, 44), onClick: () => app.engine.go(S.settings.freeTab === 'songs' ? app.scenes.songs() : app.scenes.free()) }));
     y += 78;
     anim(2, () => ui.button('t:hut', x, y, bw, 62, 'Lama-boomhut', { icon: 'home', variant: 'green', sub: 'Uitrusten en je kamer inrichten', onClick: () => app.engine.go(app.scenes.treehouse()) }));
     y += 80;

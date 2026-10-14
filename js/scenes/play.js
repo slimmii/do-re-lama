@@ -1,4 +1,4 @@
-// Het gitaarspel (reis of vrij oefenen): spelregels, spelen, pauze en game over. De HUD staat onderaan op de bodem.
+// Het gitaarspel (reis, vrij oefenen of een liedje): spelregels, spelen, pauze en game over. De HUD staat onderaan op de bodem.
 import { ui } from '../ui.js';
 import { C, text, title, pill, bar, rr, wrap, icon, star, clamp, ease } from '../draw.js';
 import { app } from '../app.js';
@@ -13,6 +13,7 @@ import {
 import { BIOMES } from '../lama-world.js';
 import { fitWorld } from '../backdrop.js';
 import { card, dimScreen, noteChip } from './common.js';
+import { songStars } from '../songs.js';
 
 const COINS_JOURNEY = 1 / 2, COINS_FREE = 1 / 9; // gemiddeld 1 op 3 noten een munt, bij vrij oefenen 1 op 10
 const JOURNEY_LIVES = 3; // op de reis altijd 3 levens; de instelling geldt enkel bij vrij oefenen
@@ -36,12 +37,14 @@ function getGame() {
 }
 
 export class PlayScene {
-  constructor({ mode }) {
-    this.mode = mode; // 'reis' | 'vrij'
+  constructor({ mode, song = null }) {
+    this.mode = mode; // 'reis' | 'vrij' | 'lied'
+    this.song = song; // bij 'lied': een liedje uit songs.js
     this.state = 'ready'; // ready | mic | micerr | play | over
   }
 
   get journey() { return this.mode === 'reis'; }
+  get songMode() { return this.mode === 'lied'; }
   get tap() { return !this.journey && S.settings.noGuitar; } // vrij oefenen zonder gitaar: tikken op een keuze
   atFront() { return S.journey.at === S.journey.stage; }
 
@@ -53,6 +56,7 @@ export class PlayScene {
     game.onBossWon = () => this.onBossWon();
     game.onCoin = () => { S.wallet.coins++; persist(); };
     game.onBest = (best) => { S.best[this.bestKey()] = best; persist(); };
+    game.onSongDone = () => this.onSongDone();
     mic.listen((ev) => game.onNote(ev));
     this.configure();
     this.onVis = () => { if (document.hidden && this.state === 'play' && game.running) this.pause(); };
@@ -70,7 +74,7 @@ export class PlayScene {
   resize(VW) { this.game?.resize(VW); }
 
   bestKey() {
-    const base = this.journey ? `reis:${S.journey.at}` : [...S.settings.selection].sort().join(',');
+    const base = this.journey ? `reis:${S.journey.at}` : this.songMode ? `lied:${this.song.id}` : [...S.settings.selection].sort().join(',');
     const lives = this.journey ? '' : S.settings.lives === 3 ? '' : `|${S.settings.lives}`;
     return base + lives + (this.tap ? '|tik' : '');
   }
@@ -91,7 +95,8 @@ export class PlayScene {
     g.coinChance = this.journey ? COINS_JOURNEY : COINS_FREE;
     if (this.journey) g.world.stay(j.at);
     else g.world.wander(STAGES.slice(0, j.stage + 1).map((s) => s.biome), g.dist);
-    g.setPool(this.journey ? unlockedNotes(j.at) : PRACTICE_NOTES.filter((n) => st.selection.includes(n)));
+    g.setSong(this.songMode ? this.song : null);
+    if (!this.songMode) g.setPool(this.journey ? unlockedNotes(j.at) : PRACTICE_NOTES.filter((n) => st.selection.includes(n)));
     g.best = g.immortal() ? 0 : S.best[this.bestKey()] || 0;
   }
 
@@ -154,12 +159,29 @@ export class PlayScene {
     this.game.say(this.tap ? 'Tik op de noot boven het monster als ze in de blauwe balk staat!' : S.intro ? '' : 'Speel de noot boven het monster als ze in de blauwe balk staat!');
     S.intro = true;
     this.wonStage = false;
+    this.songResult = null;
     sound.quiet = true;
     this.state = 'play';
     this.stateT = this.t;
   }
 
+  // Liedje uit: hoeveel noten waren juist? Het beste resultaat per liedje wordt bewaard (sterren in de bibliotheek).
+  onSongDone() {
+    const g = this.game, total = g.hits + g.misses;
+    const pct = total ? Math.round((g.hits / total) * 100) : 0;
+    const key = this.song.id + (this.tap ? '|tik' : '');
+    const before = S.songs[key] || 0;
+    this.songResult = { pct, before, better: pct > before };
+    if (pct > before) S.songs[key] = pct;
+    sound.quiet = false;
+    this.state = 'over';
+    this.stateT = this.t;
+    persist();
+    setTimeout(() => sfx(pct >= 70 ? 'start' : 'over'), 350);
+  }
+
   onOver() {
+    this.songResult = null;
     sound.quiet = false;
     this.state = 'over';
     this.stateT = this.t;
@@ -188,7 +210,7 @@ export class PlayScene {
 
   quit() {
     this.game.stop();
-    app.engine.go(this.journey ? app.scenes.journey() : app.scenes.free());
+    app.engine.go(this.journey ? app.scenes.journey() : this.songMode ? app.scenes.songs() : app.scenes.free());
   }
 
   back() {
@@ -422,9 +444,9 @@ export class PlayScene {
   drawReady(g, VW, VH) {
     dimScreen(g, VW, VH, 0.35);
     const j = S.journey, game = this.game;
-    const w = Math.min(600, VW - 40), h = 360;
+    const w = Math.min(600, VW - 40), h = this.songMode ? 400 : 360;
     card(g, VW, VH, w, h, this.t, (x, y) => {
-      const head = this.journey ? STAGES[j.at].name : 'Vrij oefenen';
+      const head = this.journey ? STAGES[j.at].name : this.songMode ? this.song.name : 'Vrij oefenen';
       title(g, head, VW / 2, y + 40, 34, C.orange);
       // de noten van dit spel
       const notes = [...game.pool].sort((a, b) => soundingMidi(a) - soundingMidi(b));
@@ -444,6 +466,7 @@ export class PlayScene {
         game.immortal() ? 'Fout of te laat = botsen. Onsterfelijk: je kan niet verliezen (en er zijn geen munten).'
           : `Fout of te laat = botsen. Je hebt ${game.maxLives} ${game.maxLives === 1 ? 'leven' : 'levens'}. Een munt in de lucht? ${this.tap ? 'Tik' : 'Speel'} die noot en vang ze!`,
       ];
+      if (this.songMode) lines.splice(1, 0, this.song.minDur < 1 ? 'Volg het ritme van het liedje: bij korte noten staan de monsters dichter en springt de lama sneller!' : 'Volg het ritme van het liedje: lange noten = meer ruimte tot het volgende monster.');
       if (this.journey && this.atFront() && !isLastStage(j.stage)) lines.push(ready(j) ? 'De poortwachter wacht op je!' : `Nog ${Math.max(0, GATE_HITS - j.progress)} juiste noten tot de poortwachter (80% juist).`);
       let ly = y + 150;
       for (const l of lines) {
@@ -478,12 +501,28 @@ export class PlayScene {
     dimScreen(g, VW, VH, Math.min(0.5, t * 2));
     const game = this.game, j = S.journey;
     const w = Math.min(560, VW - 40), h = 372;
+    const res = this.songResult; // liedje helemaal gespeeld
     card(g, VW, VH, w, h, t, (x, y) => {
-      title(g, 'GAME OVER', VW / 2, y + 44, 48, '#ff9cbd');
-      const n = Math.round(game.score * ease.out(clamp(t / 0.8, 0, 1)));
-      title(g, n, VW / 2, y + 112, 64, C.gold);
-      text(g, game.score === 1 ? 'punt' : 'punten', VW / 2, y + 152, { size: 18, color: C.muted });
-      if (game.newBest && game.score > 0) {
+      if (res) {
+        title(g, 'Liedje gespeeld!', VW / 2, y + 44, 42, C.gold, { maxW: w - 40 });
+        title(g, `${Math.round(res.pct * ease.out(clamp(t / 0.8, 0, 1)))}%`, VW / 2, y + 108, 56, '#7ee08a');
+        const k = songStars(res.pct);
+        for (let i = 0; i < 3; i++) star(g, VW / 2 - 40 + i * 40, y + 152, 15, i < k);
+      } else {
+        title(g, 'GAME OVER', VW / 2, y + 44, 48, '#ff9cbd');
+        const n = Math.round(game.score * ease.out(clamp(t / 0.8, 0, 1)));
+        title(g, n, VW / 2, y + 112, 64, C.gold);
+        text(g, game.score === 1 ? 'punt' : 'punten', VW / 2, y + 152, { size: 18, color: C.muted });
+      }
+      if (res) {
+        if (res.better && res.before > 0) {
+          const p = 1 + Math.sin(this.t * 6) * 0.05;
+          g.save(); g.translate(x + w - 86, y + 108); g.rotate(0.18); g.scale(p, p);
+          rr(g, -62, -20, 124, 40, 12); g.fillStyle = C.gold; g.fill(); g.lineWidth = 3.5; g.strokeStyle = C.ink; g.stroke();
+          text(g, 'RECORD!', 0, 1, { size: 20, color: '#fff', stroke: C.ink, strokeW: 5 });
+          g.restore();
+        } else if (res.before > 0) text(g, `record ${res.before}%`, x + w - 86, y + 112, { size: 16, color: C.muted });
+      } else if (game.newBest && game.score > 0) {
         const p = 1 + Math.sin(this.t * 6) * 0.05;
         g.save(); g.translate(x + w - 92, y + 108); g.rotate(0.18); g.scale(p, p);
         rr(g, -62, -20, 124, 40, 12); g.fillStyle = C.gold; g.fill(); g.lineWidth = 3.5; g.strokeStyle = C.ink; g.stroke();
@@ -507,12 +546,13 @@ export class PlayScene {
         text(g, v, sx + sw / 2 + 10, y + 198, { size: 24, color: C.text });
         text(g, l, sx + sw / 2, y + 228, { size: 14, weight: 800, color: C.muted });
       });
-      if (this.wonStage) text(g, `Nieuw landschap bereikt: ${STAGES[j.stage].name}!`, VW / 2, y + 266, { size: 16, color: C.greenD });
+      if (this.songMode && !res) text(g, `Je kwam tot noot ${game.hits + game.misses} van ${this.song.notes.length}.`, VW / 2, y + 266, { size: 15, color: C.muted });
+      else if (this.wonStage) text(g, `Nieuw landschap bereikt: ${STAGES[j.stage].name}!`, VW / 2, y + 266, { size: 16, color: C.greenD });
       else if (this.journey && this.atFront() && !isLastStage(j.stage))
         text(g, ready(j) ? 'De poortwachter wacht op je!' : `Poort: ${Math.min(j.progress, GATE_HITS)}/${GATE_HITS} juist · ${Math.round(accuracy(j.recent) * 100)}% raak (80% nodig)`, VW / 2, y + 266, { size: 15, color: C.muted });
       const bw = (w - 48) / 2;
       ui.button('go:again', x + 16, y + h - 82, bw, 60, 'Opnieuw', { icon: 'retry', primary: true, onClick: () => this.start(), sound: 'silent' });
-      ui.button('go:menu', x + 32 + bw, y + h - 82, bw, 60, this.journey ? 'De kaart' : 'Noten kiezen', { icon: this.journey ? 'map' : 'note', variant: 'blue', size: 20, onClick: () => this.quit(), sound: 'back' });
+      ui.button('go:menu', x + 32 + bw, y + h - 82, bw, 60, this.journey ? 'De kaart' : this.songMode ? 'Liedjes' : 'Noten kiezen', { icon: this.journey ? 'map' : 'note', variant: 'blue', size: 20, onClick: () => this.quit(), sound: 'back' });
     });
   }
 }

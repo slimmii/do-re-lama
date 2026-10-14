@@ -12,6 +12,7 @@ import { BootScene } from './scenes/boot.js';
 import { TitleScene } from './scenes/title.js';
 import { JourneyScene } from './scenes/journey.js';
 import { FreeScene } from './scenes/free.js';
+import { SongsScene } from './scenes/songs.js';
 import { PlayScene } from './scenes/play.js';
 import { PauseScene } from './scenes/pause.js';
 import { SettingsScene } from './scenes/settings.js';
@@ -27,6 +28,7 @@ app.scenes = {
   title: () => new TitleScene(),
   journey: () => new JourneyScene(),
   free: () => new FreeScene(),
+  songs: () => new SongsScene(),
   play: (o) => new PlayScene(o),
   pause: (o) => new PauseScene(o),
   settings: (o) => new SettingsScene(o),

@@ -22,6 +22,7 @@ export const GROUND_Y = 606 * BG_SCALE; // hier staan de pootjes
 export const PLAYER_X = 190;
 const PLAYER_H = 112;
 const PX_PER_BEAT = 220; // afstand tussen twee monsters (= twee noten)
+const MIN_GAP_PX = 110; // liedjes: zo dicht staan twee monsters minstens bij elkaar (anders wordt een tel breder)
 const LEAD_BEATS = 4; // zoveel tellen loopt de lama voor het eerste monster komt
 
 // Beoordeling. Het speelvenster (de blauwe balk) ligt tussen BAR_LATE en BAR_LATE + breedte
@@ -65,6 +66,10 @@ export class LamaGame {
     this.keyboard = false; // spelen met het toetsenbord: toon de toets bij de noot
     this.maxLives = 3; // 0 = onsterfelijk: botsen mag, het spel stopt nooit
     this.barBeats = 0.45; // breedte van het speelvenster in tellen
+    this.pxb = PX_PER_BEAT; // pixels per tel
+    this.song = null; // liedje uit de bibliotheek (songs.js): de noten komen dan in die volgorde en dat ritme
+    this.meter = 4; // tellen per maat (metronoom en maatstrepen)
+    this.onSongDone = null; // () => void, als het liedje uit is
     this.best = 0;
     this.newBest = false;
     this.onBest = null; // (best) => void, om het record te bewaren
@@ -107,6 +112,19 @@ export class LamaGame {
     if (!this.running && !this.paused) this.reset();
   }
 
+  // Een liedje spelen (null = weer willekeurige noten). Korte noten staan nooit dichter dan MIN_GAP_PX bij elkaar:
+  // dan wordt een tel gewoon breder (en loopt de lama sneller), de tijd blijft dezelfde.
+  setSong(song) {
+    this.song = song;
+    this.meter = song?.meter || 4;
+    this.pxb = song ? Math.max(PX_PER_BEAT, Math.ceil(MIN_GAP_PX / song.minDur)) : PX_PER_BEAT;
+    if (song) this.setPool(song.used);
+    else if (!this.running && !this.paused) this.reset();
+  }
+
+  // Liedje: op welke tel begint het (een opmaat valt vlak voor een maatstreep).
+  songStart() { return LEAD_BEATS + (this.song.up ? this.meter - this.song.up : 0); }
+
   // Toetsenbord: de noten van laag naar hoog op A S D F ...
   setKeys(list) {
     this.keyOf = new Map([...new Set(list)].sort((a, b) => parseNote(a).midi - parseNote(b).midi).map((p, i) => [p, KEYS[i]]));
@@ -144,6 +162,8 @@ export class LamaGame {
     this.floaters = [];
     this.shake = 0;
     this.msg = null;
+    this.songAt = 0; // liedje: de volgende noot die nog moet komen
+    this.done = false; // liedje helemaal gespeeld
     this.fill();
   }
 
@@ -164,7 +184,8 @@ export class LamaGame {
   }
 
   fill() {
-    const visible = this.W / PX_PER_BEAT + 2;
+    if (this.song) return this.fillSong();
+    const visible = this.W / this.pxb + 2;
     let last = this.notes.length ? this.notes[this.notes.length - 1].beat : LEAD_BEATS - 1;
     while (last < this.beat + visible) {
       last += 1;
@@ -190,8 +211,39 @@ export class LamaGame {
     }
   }
 
+  // Liedje: de noten in volgorde, op hun eigen tel (met hun duur, voor de notenbalk). Munten zoals gewoonlijk.
+  fillSong() {
+    const list = this.song.notes, start = this.songStart(), visible = this.W / this.pxb + 2;
+    while (this.songAt < list.length && start + list[this.songAt].at < this.beat + visible) {
+      const s = list[this.songAt++];
+      const beat = start + s.at;
+      this.lastFinger = this.lastFinger === 'm' ? 'i' : 'm';
+      const coin = !this.immortal() && this.songAt > 2 && this.sinceCoin >= 1 && Math.random() < this.coinChance;
+      this.sinceCoin = coin ? 0 : this.sinceCoin + 1;
+      this.notes.push({ p: s.p, beat, dur: s.dur, state: null, finger: this.lastFinger, kind: coin ? 'coin' : this.world.monsterAt(this.worldX(beat)), t: Math.random() * 6 });
+    }
+  }
+
+  // Liedje uit: alle noten zijn beslist en de laatste is voorbij de lama (en ze is geland).
+  checkSongDone() {
+    if (!this.song || this.songAt < this.song.notes.length || this.notes.some((n) => !n.state)) return;
+    const last = this.notes[this.notes.length - 1];
+    if (last && this.xOf(last) > PLAYER_X - 80) return;
+    if (this.player.jump || this.player.queue.length) return;
+    this.stop();
+    this.done = true;
+    this.onSongDone?.();
+  }
+
+  // Maatstrepen van het liedje (in tellen), voor de notenbalk.
+  barLines() {
+    if (!this.song) return [];
+    const start = this.songStart();
+    return [...this.song.bars, this.song.beats].map((b) => start + b);
+  }
+
   // Waar (afgelegde weg) de noot op tel 'beat' op de bodem staat.
-  worldX(beat) { return this.dist + PLAYER_X + (beat - this.beat) * PX_PER_BEAT; }
+  worldX(beat) { return this.dist + PLAYER_X + (beat - this.beat) * this.pxb; }
   bossX() { return this.W - 190; }
 
   // ---------- poortwachter ----------
@@ -289,14 +341,14 @@ export class LamaGame {
 
   immortal() { return !this.maxLives; }
 
-  barW() { return this.barBeats * PX_PER_BEAT; }
+  barW() { return this.barBeats * this.pxb; }
   // afstand (px) van de noot tot de lama: in de balk als BAR_LATE <= d <= BAR_LATE + barW()
   inBar(d) { return d >= BAR_LATE && d <= BAR_LATE + this.barW(); }
   setBarBeats(b) { this.barBeats = b; }
 
   spb() { return 60 / this.bpm; }
-  speed() { return (PX_PER_BEAT * this.bpm) / 60; } // px per seconde
-  xOf(n) { return PLAYER_X + (n.beat - this.beat) * PX_PER_BEAT; }
+  speed() { return (this.pxb * this.bpm) / 60; } // px per seconde
+  xOf(n) { return PLAYER_X + (n.beat - this.beat) * this.pxb; }
 
   update() {
     if (this.paused) return;
@@ -318,11 +370,11 @@ export class LamaGame {
     if (this.running) {
       const next = this.beat + (dt * this.bpm) / 60;
       // metronoom: tik telkens een noot in het midden van de blauwe balk staat
-      const mid = (BAR_LATE + this.barW() / 2) / PX_PER_BEAT;
+      const mid = (BAR_LATE + this.barW() / 2) / this.pxb;
       const whole = Math.floor(next + mid + 1e-6);
       if (whole > this.lastBeatClick) {
         this.lastBeatClick = whole;
-        if (this.metro) this.o.click(now, whole % 4 === 0);
+        if (this.metro) this.o.click(now, (((whole - LEAD_BEATS) % this.meter) + this.meter) % this.meter === 0);
       }
       this.beat = next;
       this.dist += this.speed() * dt;
@@ -330,6 +382,7 @@ export class LamaGame {
       while (this.hist.length > 2 && now - this.hist[0].t > 4) this.hist.shift();
       this.fill();
       this.collide(now);
+      if (this.running) this.checkSongDone();
     } else if (!this.over) {
       this.dist += 60 * dt; // rustig wandelen in het startscherm
     }
@@ -371,10 +424,17 @@ export class LamaGame {
 
   // Luchttijd: de lama blijft in de lucht tot het monster van noot n helemaal onder haar door is.
   // Bij een munt: zo lang dat ze bovenaan haar sprong is als de munt bij haar is.
+  // Komt het volgende monster snel (korte noten in een liedje), dan springt ze korter: ze moet al geland zijn
+  // als dat monster bij haar is.
   jumpTime(n) {
     const d = this.xOf(n) - PLAYER_X;
-    if (n.kind === 'coin') return Math.min(Math.max((2 * d) / this.speed(), 0.4), 0.95 * this.spb() + 0.3);
-    return Math.min(Math.max((d + CONTACT_PX + JUMP_MARGIN) / this.speed(), 0.35), 0.95 * this.spb() + 0.3);
+    const D = n.kind === 'coin'
+      ? Math.min(Math.max((2 * d) / this.speed(), 0.4), 0.95 * this.spb() + 0.3)
+      : Math.min(Math.max((d + CONTACT_PX + JUMP_MARGIN) / this.speed(), 0.35), 0.95 * this.spb() + 0.3);
+    const next = this.notes[this.notes.indexOf(n) + 1];
+    if (!next) return D;
+    const until = (this.xOf(next) - PLAYER_X - CONTACT_PX) / this.speed() - 0.02;
+    return Math.max(0.12, Math.min(D, until));
   }
 
   collide(now) {
@@ -461,7 +521,7 @@ export class LamaGame {
     const now = this.o.ctx().currentTime;
     const at = Math.min(ev.time ?? now, now);
     // Waar stond de noot op het moment van de tokkel (niet: toen de herkenning klaar was)?
-    const d = (tgt.beat - this.beatAt(at)) * PX_PER_BEAT;
+    const d = (tgt.beat - this.beatAt(at)) * this.pxb;
     const trace = { t: ev.time, midi: ev.midi, want: soundingMidi(tgt.p), d, verdict: '' };
     this.trace.push(trace);
     if (this.trace.length > 12) this.trace.shift();
@@ -588,6 +648,16 @@ export class LamaGame {
     drawClef(g, 22, lineY(3), '#3a2350');
     // noten (afgeknipt na de sleutel)
     g.beginPath(); g.rect(NOTE_X0 - 6, 0, W - 13 - NOTE_X0 + 6, PANEL.y + PANEL.h); g.clip();
+    // liedje: maatstrepen (vlak voor de eerste noot van de maat), een dubbele streep op het einde
+    const bars = this.barLines();
+    g.strokeStyle = '#8f8296';
+    bars.forEach((b, i) => {
+      const x = PLAYER_X + (b - this.beat) * this.pxb - 24;
+      if (x > W || x < NOTE_X0 - 10) return;
+      const end = i === bars.length - 1;
+      g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, lineY(0)); g.lineTo(x, lineY(4)); g.stroke();
+      if (end) { g.lineWidth = 4; g.beginPath(); g.moveTo(x + 6, lineY(0)); g.lineTo(x + 6, lineY(4)); g.stroke(); }
+    });
     for (const n of this.notes) {
       const x = this.xOf(n);
       if (x > W + 30 || x < NOTE_X0 - 30) continue;
@@ -618,11 +688,20 @@ export class LamaGame {
     for (let s = E4 - 2; s >= d; s -= 2) ledger(s);
     for (let s = E4 + 10; s <= d; s += 2) ledger(s);
     if (inBar) { g.shadowColor = 'rgba(47,111,220,.9)'; g.shadowBlur = 10; }
-    g.beginPath(); g.ellipse(x, y, 9.9, 7, -0.35, 0, Math.PI * 2); g.fill();
+    // liedjes: de duur van de noot (halve en hele noten hol, achtsten met een vlaggetje, een punt erachter)
+    const dur = n.dur ?? 1;
+    g.beginPath(); g.ellipse(x, y, 9.9, 7, -0.35, 0, Math.PI * 2);
+    if (dur >= 2) { g.lineWidth = 2.6; g.stroke(); g.lineWidth = 2.1; } else g.fill();
     g.shadowBlur = 0;
-    g.beginPath();
-    if (d < B4) { g.moveTo(x + 9, y - 1.6); g.lineTo(x + 9, y - 54); } else { g.moveTo(x - 9, y + 1.6); g.lineTo(x - 9, y + 54); }
-    g.stroke();
+    if (dur < 4) {
+      const up = d < B4, sx = up ? x + 9 : x - 9, tip = up ? y - 54 : y + 54, s = up ? 1 : -1;
+      g.beginPath(); g.moveTo(sx, y - 1.6 * s); g.lineTo(sx, tip); g.stroke();
+      for (let i = 0; i < (dur < 0.5 ? 2 : dur < 1 ? 1 : 0); i++) { // vlaggetjes
+        const fy = tip + i * 9 * s;
+        g.beginPath(); g.moveTo(sx, fy); g.bezierCurveTo(sx + 2, fy + 10 * s, sx + 13, fy + 12 * s, sx + 10, fy + 26 * s); g.stroke();
+      }
+    }
+    if ([0.75, 1.5, 3].includes(dur)) { g.beginPath(); g.arc(x + 16, y - ((d - E4) % 2 === 0 ? HALF / 2 : 0), 2.6, 0, Math.PI * 2); g.fill(); }
     const acc = parseNote(n.p).acc;
     if (acc) { g.font = FONT(22, 700); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(acc === '#' ? '♯' : '♭', x - 25, y); }
     g.restore();
@@ -643,7 +722,7 @@ export class LamaGame {
     const tag = n.state === 'wrong' || n.state === 'missed' ? n.wrongText : early ? 'wacht…' : '';
     if (tag) {
       g.font = FONT(13, 800);
-      g.fillStyle = n.state ? '#dc3b3b' : '#7d7067';
+      g.fillStyle = n.state ? '#dc3b3b' : held ? '#c98a00' : '#7d7067';
       g.fillText(tag, x, base + (named ? 57 : 42));
     } else if (this.keyboard && !n.state && this.keyOf?.get(n.p)) {
       const k = this.keyOf.get(n.p)[1], ky = base + (named ? 52 : 38);

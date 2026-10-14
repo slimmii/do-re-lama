@@ -2,9 +2,23 @@
 import { ui } from '../ui.js';
 import { C, text, title, panel, ribbon, pill, star, rr, ease, clamp, wrap, measure } from '../draw.js';
 import { app } from '../app.js';
-import { S } from '../store.js';
+import { S, persist } from '../store.js';
 import { totalStars } from '../lama-journey.js';
 import { isFullscreen, canFullscreen, toggleFullscreen } from '../engine.js';
+
+// Vrij oefenen: levens (1-10 of onsterfelijk), voor losse noten en liedjes.
+export const LIVES = [{ label: '1', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 }, { label: '5', value: 5 }, { label: '10', value: 10 }, { label: '∞', value: 0 }];
+
+// Vrij oefenen: tabbladen bovenaan het paneel (zelf noten kiezen of een liedje uit de bibliotheek).
+export function freeTabs(x, y, active) {
+  const tabs = [{ label: 'Noten kiezen', value: 'notes' }, { label: 'Liedjes', value: 'songs' }];
+  ui.choice('free:tabs', x, y, 300, 46, null, tabs, active, (v) => {
+    if (v === active) return;
+    S.settings.freeTab = v;
+    persist();
+    app.engine.go(v === 'songs' ? app.scenes.songs() : app.scenes.free());
+  }, { color: C.blue, size: 16 });
+}
 
 // Munten- en sterrenteller rechtsboven.
 export function walletPills(g, VW, y = 16, o = {}) {
