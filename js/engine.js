@@ -20,7 +20,8 @@ export class Engine {
   }
 
   resize() {
-    const w = window.innerWidth, h = window.innerHeight;
+    // de grootte van het canvas zelf: dat laat de veilige zone (notch) van een gsm vrij
+    const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight;
     // Scherpte: hoogstens 2x, en nooit meer dan ~3 miljoen pixels (anders wordt elke frame te duur op grote schermen).
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1, Math.sqrt(3.2e6 / (w * h))));
     this.canvas.width = Math.round(w * dpr);
@@ -160,5 +161,9 @@ export function toggleFullscreen() {
   if (isFullscreen()) return (document.exitFullscreen || document.webkitExitFullscreen).call(document);
   const el = document.documentElement;
   const req = el.requestFullscreen || el.webkitRequestFullscreen;
-  try { req?.call(el, { navigationUI: 'hide' })?.catch?.(() => {}); } catch {}
+  try {
+    // op een gsm meteen liggend zetten (kan enkel op volledig scherm, en niet overal)
+    Promise.resolve(req?.call(el, { navigationUI: 'hide' }))
+      .then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
+  } catch {}
 }

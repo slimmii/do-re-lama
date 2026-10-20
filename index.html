@@ -9,6 +9,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Do Re Lama</title>
   <link rel="icon" href="/img/lama/coin.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="Do Re Lama">
   <link rel="preload" href="/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
   <style>
     @font-face {
@@ -18,7 +21,9 @@
       font-display: block;
     }
     html, body { margin: 0; height: 100%; overflow: hidden; background: #1d1630; overscroll-behavior: none; }
-    canvas { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; outline: none; }
+    /* binnen de veilige zone blijven (notch, afgeronde hoeken, balkje onderaan op een gsm) */
+    canvas { display: block; position: fixed; top: env(safe-area-inset-top); right: env(safe-area-inset-right); bottom: env(safe-area-inset-bottom); left: env(safe-area-inset-left);
+      width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)); height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; outline: none; }
   </style>
 </head>
 <body>

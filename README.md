@@ -21,6 +21,19 @@ en geef toestemming voor de microfoon. De microfoon werkt enkel via `http://loca
 `npm run build` maakt de site in `dist/` (`npm run preview` om die lokaal te testen). Op Vercel: importeer de repo,
 Vercel herkent Vite vanzelf (build `npm run build`, output `dist`). Vercel serveert via https, dus de microfoon werkt.
 
+## Op je gsm of tablet (als app)
+
+De gebouwde site is een installeerbare web-app (`public/manifest.webmanifest`, iconen in `public/icons/`, en een
+service worker die `vite.config.js` bij elke `npm run build` als `dist/sw.js` maakt). Na de eerste keer laden werkt
+alles ook zonder internet; een nieuwe versie wordt opgehaald zodra er weer net is.
+
+- **Installeren**: open de Vercel-site (https) op de gsm. Android/Chrome: menu ⋮ › *App installeren* (of *Toevoegen
+  aan startscherm*). iPhone/Safari: deelknop › *Zet op beginscherm*. De app opent liggend en op volledig scherm.
+- **Snel testen op wifi**: `npm run dev` (of `npm run preview`) toont ook een *Network*-adres (bv. `http://192.168.…:8770`)
+  dat je op de gsm kan openen. Over gewone http werkt de microfoon daar niet en kan je niet installeren: gebruik dan
+  *Zonder gitaar*, of test via de Vercel-site.
+- Nieuwe iconen: `swift tools/icons.swift` (macOS).
+
 ## Spelvormen
 
 - **De reis**: negen landschappen, elk met een nieuwe noot. Speel 30 noten juist (80% raak) en er staat

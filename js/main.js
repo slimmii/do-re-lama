@@ -65,3 +65,8 @@ engine.start();
 // Testhaakje (console): window.__lama.app.engine.top()
 window.__lama = { app, ui, S };
 installDev(); // dev.hulp() in de console
+
+// Installeerbaar en offline speelbaar: de service worker (public/sw.js) wordt enkel in de gebouwde site gebruikt.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
