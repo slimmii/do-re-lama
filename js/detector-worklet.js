@@ -249,6 +249,16 @@ export class DetectorCore {
       for (let h = 1; h <= 8 && f0 * h <= 5000; h++) sc += peakIn(diff, f0 * h);
       if (sc > bestS) { bestS = sc; best = midi; }
     }
+    // Hoe duidelijk wint 'best'? Verhouding tot de sterkste nieuwe toon die er geen octaaf, boventoon of ondertoon van is.
+    // (Een microfoon in de kamer geeft YIN weinig zekere metingen; dan moet het spectrum zeggen hoe zeker het is.)
+    let rivalS = 0;
+    if (best != null) {
+      for (let midi = 40; midi <= 84; midi++) {
+        if (!this.ok(midi) || midi % 12 === best % 12 || isOvertoneOf(midi, best) || isOvertoneOf(best, midi)) continue;
+        rivalS = Math.max(rivalS, newSal(midi));
+      }
+    }
+    const margin = best == null ? 0 : rivalS ? bestS / rivalS : 99;
     // Kies uit de kandidaten (en hun octaven) de toon die het best past:
     // grondtoon hoorbaar, sterke harmonischen, en zo veel mogelijk nieuw bij deze aanslag.
     const choose = (cands) => {
@@ -354,7 +364,7 @@ export class DetectorCore {
     // Heeft de toon boventonen (2e of 3e harmonische)? De klankkastresonantie (100-150 Hz) is één enkele piek.
     const harmonic = (m) => { const f = f0Of(m); return peakIn(post, 2 * f) + peakIn(post, 3 * f) >= 0.1 * peakIn(post, f) && peakIn(post, 2 * f) + peakIn(post, 3 * f) >= 0.05 * postMax; };
     const oddOvertonesNew = (m) => { const f = f0Of(m); return peakIn(diff, 3 * f) + peakIn(diff, 5 * f) >= 0.05 * postMax; };
-    return { newFrac, best, choose, confirms, present, bestOf, hasFundamental, isSubharmonic, fundNew, isOvertoneOf, oddOvertonesNew, harmonic };
+    return { newFrac, best, margin, choose, confirms, present, bestOf, hasFundamental, isSubharmonic, fundNew, isOvertoneOf, oddOvertonesNew, harmonic };
   }
 
   // Geeft { flux, cd }: relatieve toename van de spectrale grootte, en de 'complex domain'-afwijking:
@@ -553,7 +563,9 @@ export class DetectorCore {
         const fresh = ana && m != null ? +ana.newFrac(m).toFixed(2) : null;
         // yin: hoeveel zekere YIN-metingen deze noot hoorden; 0 = enkel uit het spectrum of de verwachting afgeleid (twijfel)
         const yin = this.pending.votes.filter((x) => x === m).length;
-        this.emit({ type: 'note', time: this.pending.time, midi: m, attack: true, strength: this.pending.strength, fresh, yin });
+        // spec: hoe duidelijk het spectrum deze noot boven elke andere nieuwe toon hoort (0 = het spectrum koos iets anders)
+        const spec = ana && ana.best === m ? +Math.min(ana.margin, 99).toFixed(1) : 0;
+        this.emit({ type: 'note', time: this.pending.time, midi: m, attack: true, strength: this.pending.strength, fresh, yin, spec });
         this.pending = null;
         this.recentAttack = null; // een eerdere aanslag zonder toon is hiermee voorbij
       } else if (age > 0.4) {

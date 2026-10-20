@@ -36,6 +36,7 @@ const JUMP_MARGIN = 20; // px extra lucht achter het monster
 // YIN-metingen, grotendeels nieuw geluid). Anders blijft alles staan met een '?' en mag je nog eens proberen.
 const SURE_YIN = 3;
 const SURE_FRESH = 0.5;
+const SURE_SPEC = 2; // of: het spectrum hoort de noot minstens zoveel keer sterker dan elke andere nieuwe toon (microfoon in de kamer)
 const HOLD_HINT = 5; // s wachten: dan zegt de lama waar je de noot vindt
 
 // De notenbalk (wolk bovenaan)
@@ -550,7 +551,7 @@ export class LamaGame {
     this.trace.push(trace);
     if (this.trace.length > 12) this.trace.shift();
     // logboek: pas na de beslissing schrijven (verdict is dan ingevuld); de regel zelf blijft hetzelfde voorwerp
-    queueMicrotask(() => devlog.write('spel', { t: +trace.t.toFixed(3), midi: ev.midi, aanslag: ev.attack !== false, nieuw: ev.fresh ?? null, noot: tgt.p, wil: trace.want, soort: tgt.kind, px: Math.round(d), oordeel: trace.verdict }));
+    queueMicrotask(() => devlog.write('spel', { t: +trace.t.toFixed(3), midi: ev.midi, aanslag: ev.attack !== false, nieuw: ev.fresh ?? null, yin: ev.yin ?? null, spec: ev.spec ?? null, noot: tgt.p, wil: trace.want, soort: tgt.kind, px: Math.round(d), oordeel: trace.verdict }));
     // Nog niet in de blauwe balk: niet meetellen en niet bestraffen, enkel laten zien.
     // (De juiste noot nét voor de balk telt wel: anders wordt ze weggegooid en is het daarna 'te laat'.)
     const early = d - (BAR_LATE + this.barW());
@@ -595,7 +596,7 @@ export class LamaGame {
     if (tgt.earlyRight && now < tgt.earlyUntil) { trace.verdict = 'na te vroege juiste'; return; }
     // Niet zeker wat er klonk (een slordige tokkel): niet bestraffen, maar stilstaan en laten herproberen.
     // (Het toetsenbord stuurt geen yin mee: dat is altijd zeker.)
-    const sure = ev.yin == null || (ev.yin >= SURE_YIN && (ev.fresh == null || ev.fresh >= SURE_FRESH));
+    const sure = ev.yin == null || ((ev.yin >= SURE_YIN || ev.spec >= SURE_SPEC) && (ev.fresh == null || ev.fresh >= SURE_FRESH));
     if (this.waitOnDoubt && !sure) {
       trace.verdict = 'twijfel';
       if (!this.hold) this.hold = { n: tgt, at: now, t: 0, hinted: false };
