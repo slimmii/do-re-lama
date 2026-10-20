@@ -2,7 +2,7 @@
 import { ui } from '../ui.js';
 import { C, text, title, panel, ribbon, rr, icon, wrap, clamp, ease } from '../draw.js';
 import { app } from '../app.js';
-import { S, persist, resetAll, TEST } from '../store.js';
+import { S, persist, resetAll, TEST, TOUCH_ONLY } from '../store.js';
 import { mic, calibrate, unlock } from '../audio.js';
 import { solfegeMidi } from '../notes.js';
 import { exportCode, importCode } from '../sync.js';
@@ -166,7 +166,7 @@ export class SettingsScene {
       R(70, (x, y, w) => this.tuneRow(x, y, w)),
       R(58, (x, y, w) => ui.toggle('s:only', x, y, w, 58, 'Enkel noten uit het spel', st.onlyGameNotes, (v) => this.set('onlyGameNotes', v), { sub: 'negeert andere tonen, zoals iemand die zingt' })),
       R(58, (x, y, w) => ui.toggle('s:echo', x, y, w, 58, 'Geen koptelefoon', st.echo, (v) => { this.set('echo', v); mic.stop(); }, { sub: 'echo-onderdrukking aanzetten' })),
-      R(58, (x, y, w) => ui.toggle('s:kb', x, y, w, 58, 'Spelen met het toetsenbord', st.keyboard, (v) => this.set('keyboard', v), { sub: 'zonder gitaar: A S D F … zijn de noten van laag naar hoog' })),
+      ...(TOUCH_ONLY ? [] : [R(58, (x, y, w) => ui.toggle('s:kb', x, y, w, 58, 'Spelen met het toetsenbord', st.keyboard, (v) => this.set('keyboard', v), { sub: 'zonder gitaar: A S D F … zijn de noten van laag naar hoog' }))]),
     ];
     if (this.tab === 'av') return [
       R(58, (x, y, w) => ui.toggle('s:metro2', x, y, w, 58, 'Metronoom', st.metro, (v) => this.set('metro', v), { sub: 'tikken tijdens het spel' })),
@@ -261,6 +261,7 @@ export class SettingsScene {
     if (S.settings.keyboard) {
       icon(g, 'keyboard', x + 30, y + 35, 28, C.muted);
       text(g, 'Je speelt nu met het toetsenbord.', x + 56, y + 36, { size: 16, color: C.muted, align: 'left' });
+      ui.button('s:kboff', x + w - 170, y + 12, 158, 46, 'Microfoon', { icon: 'mic', variant: 'green', size: 17, onClick: () => { this.set('keyboard', false); unlock(); mic.ensure(); } });
       return;
     }
     if (!mic.running) {

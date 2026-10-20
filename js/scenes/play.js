@@ -2,7 +2,7 @@
 import { ui } from '../ui.js';
 import { C, text, title, pill, bar, rr, wrap, icon, star, clamp, ease } from '../draw.js';
 import { app } from '../app.js';
-import { S, persist } from '../store.js';
+import { S, persist, TOUCH_ONLY } from '../store.js';
 import { audioCtx, click, mic, pluck, sound, sfx, unlock } from '../audio.js';
 import { devlog } from '../devlog.js';
 import { LamaGame, PLAYER_X, GROUND_Y } from '../game.js';
@@ -492,10 +492,11 @@ export class PlayScene {
       title(g, 'Geen microfoon', VW / 2, y + 88, 30, C.orange);
       let ly = y + 124;
       for (const s of wrap(g, mic.error || 'De microfoon werkt niet.', w - 70, 16, 800)) { text(g, s, VW / 2, ly, { size: 16, weight: 800, color: C.text }); ly += 21; }
-      const bw = (w - 64) / 3;
+      // op een gsm/tablet is er geen toetsenbord: dan enkel Opnieuw en Terug
+      const n = TOUCH_ONLY ? 2 : 3, bw = (w - 16 * (n + 1)) / n;
       ui.button('me:retry', x + 16, y + h - 76, bw, 52, 'Opnieuw', { icon: 'retry', primary: true, size: 18, onClick: () => { this.state = 'ready'; this.start(); } });
-      ui.button('me:kb', x + 32 + bw, y + h - 76, bw, 52, 'Toetsenbord', { icon: 'keyboard', variant: 'blue', size: 17, onClick: () => { S.settings.keyboard = true; persist(); this.state = 'ready'; this.start(); } });
-      ui.button('me:back', x + 48 + 2 * bw, y + h - 76, bw, 52, 'Terug', { icon: 'back', variant: 'paper', size: 18, onClick: () => { this.state = 'ready'; }, sound: 'back' });
+      if (!TOUCH_ONLY) ui.button('me:kb', x + 32 + bw, y + h - 76, bw, 52, 'Toetsenbord', { icon: 'keyboard', variant: 'blue', size: 17, onClick: () => { S.settings.keyboard = true; persist(); this.state = 'ready'; this.start(); } });
+      ui.button('me:back', x + 16 + (n - 1) * (bw + 16), y + h - 76, bw, 52, 'Terug', { icon: 'back', variant: 'paper', size: 18, onClick: () => { this.state = 'ready'; }, sound: 'back' });
     });
   }
 

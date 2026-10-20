@@ -153,8 +153,13 @@ export const mic = {
     const c = audioCtx();
     await c.resume().catch(() => {});
     if (this.detector?.running) return true;
+    if (!window.isSecureContext) {
+      // bv. http://192.168.…:8770 op een gsm: de browser geeft dan geen microfoon (enkel via https of localhost)
+      this.error = 'De microfoon werkt enkel via een https-adres (of http://localhost). Open het spel via de online site.';
+      return false;
+    }
     if (!navigator.mediaDevices?.getUserMedia || !c.audioWorklet) {
-      this.error = 'Deze browser kan de microfoon niet gebruiken. Open het spel via http://localhost (zie start.command).';
+      this.error = 'Deze browser kan de microfoon niet gebruiken. Probeer Chrome, Firefox of Safari.';
       return false;
     }
     const d = new PitchDetector(c);
@@ -189,7 +194,8 @@ export const mic = {
       this.refreshDevices(); // na de toestemming kent de browser ook de namen
       return true;
     } catch (e) {
-      this.error = 'Ik kan de microfoon niet gebruiken. Geef toestemming in je browser (klik op het slotje naast het adres).';
+      devlog.write('microfoon-fout', { naam: e?.name, bericht: e?.message });
+      this.error = micError(e);
       return false;
     }
   },
@@ -219,6 +225,24 @@ export const mic = {
     d.setAllowed(S.settings.onlyGameNotes ? GAME_MIDIS : []);
   },
 };
+
+// Uitleg bij een mislukte start, per soort fout (op een gsm is 'geen toestemming' vaak de app-toestemming van de browser zelf).
+function micError(e) {
+  switch (e?.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'Geen toestemming voor de microfoon. Tik op het slotje naast het adres › Machtigingen › Microfoon. '
+        + 'Op Android ook: Instellingen › Apps › Chrome › Machtigingen › Microfoon › Toestaan.';
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'Ik vind geen microfoon op dit toestel.';
+    case 'NotReadableError':
+    case 'AbortError':
+      return 'De microfoon is bezet door een andere app (bv. een oproep of opname). Sluit die en probeer opnieuw.';
+    default:
+      return `Ik kan de microfoon niet gebruiken (${e?.name || 'fout'}). Geef toestemming in je browser (tik op het slotje naast het adres).`;
+  }
+}
 
 navigator.mediaDevices?.addEventListener?.('devicechange', () => mic.refreshDevices());
 

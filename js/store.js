@@ -10,6 +10,9 @@ const KEY = 'lama-reis:save';
 // Testmodus (?test in de url): alles is van jou en er wordt niets bewaard.
 export const TEST = new URLSearchParams(location.search).has('test');
 
+// Gsm of tablet zonder muis: geen toetsenbord om noten mee te spelen, dus die keuze bestaat daar niet.
+export const TOUCH_ONLY = !!globalThis.matchMedia?.('(hover: none) and (pointer: coarse)').matches;
+
 const DEFAULTS = () => ({
   settings: {
     bpm: 30, // noten per minuut
@@ -62,6 +65,7 @@ export const S = {
 delete S.runBest; // van Lama Run, die er niet meer is
 // plekken waar meer dingen mogen staan (huisdieren) bewaren een lijst; vroeger was dat één id
 for (const s of HOUSE_SLOTS) if (s.multi && S.house.placed[s.id] != null && !Array.isArray(S.house.placed[s.id])) S.house.placed[s.id] = [S.house.placed[s.id]];
+if (TOUCH_ONLY) S.settings.keyboard = false; // ooit aangezet (bv. na een microfoonfout): dan zat je vast zonder toetsen
 if (S.journey.at == null || S.journey.at > S.journey.stage) S.journey.at = S.journey.stage;
 
 if (TEST) S.wallet = { coins: 50, owned: ITEMS.map((i) => i.id), outfit: { ...S.wallet.outfit }, imported: [] };
