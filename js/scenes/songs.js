@@ -169,9 +169,13 @@ export class SongsScene {
     text(g, sub, x + 22, by + 63, { size: 14, weight: 800, color: pv ? C.blueD : C.muted, align: 'left', maxW: infoW });
     ui.button('sg:listen', x + w - 20 - pw - 12 - lw2, by + 10, lw2, 58, pv ? 'Stop' : 'Luisteren', { icon: pv ? 'pause' : 'sound', variant: 'blue', size: 19, onClick: () => this.listen(), sound: 'silent' });
     ui.button('sg:play', x + w - 20 - pw, by + 6, pw, 64, 'Spelen', { icon: 'play', primary: true, size: 28, onClick: () => this.play(), sound: 'silent' });
-    const ry = by + 82, room = w - 40, lw = Math.round(room * 0.56);
-    ui.choice('sg:lives', x + 20, ry, lw, 56, 'Levens', LIVES, S.settings.lives, (v) => { S.settings.lives = v; persist(); }, { labelW: 90, color: C.pink });
-    ui.toggle('sg:nog', x + 30 + lw, ry, room - lw - 10, 56, 'Zonder gitaar', S.settings.noGuitar, (v) => { S.settings.noGuitar = v; persist(); }, { sub: 'tik de juiste noot aan' });
+    const ry = by + 82, room = w - 40, lw = Math.round(room * 0.44), tw2 = (room - lw - 20) / 2;
+    const loop = S.settings.songLoop; // herhalen: levens tellen dan niet (je kan niet verliezen)
+    g.save(); if (loop) g.globalAlpha = 0.45;
+    ui.choice('sg:lives', x + 20, ry, lw, 56, 'Levens', LIVES, S.settings.lives, (v) => { S.settings.lives = v; persist(); }, { labelW: 80, color: C.pink });
+    g.restore();
+    ui.toggle('sg:loop', x + 30 + lw, ry, tw2, 56, 'Herhalen', loop, (v) => { S.settings.songLoop = v; persist(); }, { sub: 'fout = terug naar begin' });
+    ui.toggle('sg:nog', x + 40 + lw + tw2, ry, tw2, 56, 'Zonder gitaar', S.settings.noGuitar, (v) => { S.settings.noGuitar = v; persist(); }, { sub: 'tik de juiste noot aan' });
   }
 }
 

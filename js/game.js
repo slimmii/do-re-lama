@@ -77,6 +77,8 @@ export class LamaGame {
     this.song = null; // liedje uit de bibliotheek (songs.js): de noten komen dan in die volgorde en dat ritme
     this.meter = 4; // tellen per maat (metronoom en maatstrepen)
     this.onSongDone = null; // () => void, als het liedje uit is
+    this.loop = false; // liedje: eindeloos herhalen, en bij elke fout terug vanaf het begin
+    this.onLoopDone = null; // () => void, als het liedje (bij herhalen) een keer foutloos gespeeld is
     this.best = 0;
     this.newBest = false;
     this.onBest = null; // (best) => void, om het record te bewaren
@@ -130,7 +132,32 @@ export class LamaGame {
   }
 
   // Liedje: op welke tel begint het (een opmaat valt vlak voor een maatstreep).
-  songStart() { return LEAD_BEATS + (this.song.up ? this.meter - this.song.up : 0); }
+  // Bij herhalen schuift het begin telkens op (songBase, altijd een veelvoud van een maat: de metronoom blijft juist).
+  upBeats() { return this.song.up ? this.meter - this.song.up : 0; }
+  songStart() { return this.songBase + LEAD_BEATS + this.upBeats(); }
+
+  // Herhalen: het liedje opnieuw inplannen, met het eerste monster minstens 'gap' tellen na tel 'after'.
+  // 'until': tot waar de vorige keer liep (bij een fout), voor de maatstrepen.
+  queueSongFrom(after, gap, until = Infinity) {
+    this.pastRuns = [...this.pastRuns.slice(-2), { base: this.songBase, until }];
+    this.songBase = Math.max(0, Math.ceil((after + gap - LEAD_BEATS - this.upBeats()) / this.meter) * this.meter);
+    this.songAt = 0;
+    this.run++;
+  }
+
+  // Herhalen: een fout bij noot n. De monsters die nog komen verdwijnen en het liedje begint opnieuw.
+  restartSong(n) {
+    for (let i = this.notes.length - 1; i >= 0; i--) {
+      const m = this.notes[i];
+      if (m === n || m.state || m.beat <= n.beat) continue;
+      this.puff(this.xOf(m), GROUND_Y - 30, 6);
+      this.notes.splice(i, 1);
+    }
+    this.queueSongFrom(n.beat, 3, n.beat);
+    this.restarts++;
+    this.say('Fout! Het liedje begint opnieuw.');
+    this.sendExpect();
+  }
 
   // Toetsenbord: de noten van laag naar hoog op A S D F ...
   setKeys(list) {
@@ -171,6 +198,12 @@ export class LamaGame {
     this.shake = 0;
     this.msg = null;
     this.songAt = 0; // liedje: de volgende noot die nog moet komen
+    this.songBase = 0; // herhalen: hier begint de huidige keer (zie songStart)
+    this.pastRuns = []; // herhalen: de vorige keren {base, until}, voor de maatstrepen
+    this.run = 0; // herhalen: hoeveelste keer het liedje
+    this.restartAt = null; // herhalen: noot waarop het fout ging (het liedje begint opnieuw in de volgende frame)
+    this.cleanRuns = 0; // herhalen: zo vaak foutloos gespeeld
+    this.restarts = 0; // herhalen: zo vaak opnieuw begonnen na een fout
     this.done = false; // liedje helemaal gespeeld
     this.fill();
   }
@@ -220,21 +253,29 @@ export class LamaGame {
   }
 
   // Liedje: de noten in volgorde, op hun eigen tel (met hun duur, voor de notenbalk). Munten zoals gewoonlijk.
+  // Herhalen: na de laatste noot komt het liedje meteen opnieuw (na een maat rust).
   fillSong() {
-    const list = this.song.notes, start = this.songStart(), visible = this.W / this.pxb + 2;
-    while (this.songAt < list.length && start + list[this.songAt].at < this.beat + visible) {
+    const list = this.song.notes, visible = this.W / this.pxb + 2;
+    for (;;) {
+      if (this.loop && this.songAt >= list.length) {
+        const end = this.songBase + LEAD_BEATS + Math.ceil((this.upBeats() + this.song.beats) / this.meter) * this.meter;
+        this.queueSongFrom(end + this.meter, 0);
+      }
+      const start = this.songStart();
+      if (this.songAt >= list.length || start + list[this.songAt].at >= this.beat + visible) break;
+      const last = this.songAt === list.length - 1;
       const s = list[this.songAt++];
       const beat = start + s.at;
       this.lastFinger = this.lastFinger === 'm' ? 'i' : 'm';
       const coin = !this.immortal() && this.songAt > 2 && this.sinceCoin >= 1 && Math.random() < this.coinChance;
       this.sinceCoin = coin ? 0 : this.sinceCoin + 1;
-      this.notes.push({ p: s.p, beat, dur: s.dur, state: null, finger: this.lastFinger, kind: coin ? 'coin' : this.world.monsterAt(this.worldX(beat)), t: Math.random() * 6 });
+      this.notes.push({ p: s.p, beat, dur: s.dur, state: null, finger: this.lastFinger, kind: coin ? 'coin' : this.world.monsterAt(this.worldX(beat)), t: Math.random() * 6, run: this.run, last });
     }
   }
 
   // Liedje uit: alle noten zijn beslist en de laatste is voorbij de lama (en ze is geland).
   checkSongDone() {
-    if (!this.song || this.songAt < this.song.notes.length || this.notes.some((n) => !n.state)) return;
+    if (!this.song || this.loop || this.songAt < this.song.notes.length || this.notes.some((n) => !n.state)) return;
     const last = this.notes[this.notes.length - 1];
     if (last && this.xOf(last) > PLAYER_X - 80) return;
     if (this.player.jump || this.player.queue.length) return;
@@ -243,11 +284,17 @@ export class LamaGame {
     this.onSongDone?.();
   }
 
-  // Maatstrepen van het liedje (in tellen), voor de notenbalk.
+  // Maatstrepen van het liedje: [{b: tel, end: slotstreep}], voor de notenbalk. Bij herhalen ook die van de vorige
+  // keren (een afgebroken keer enkel tot aan de fout).
   barLines() {
     if (!this.song) return [];
-    const start = this.songStart();
-    return [...this.song.bars, this.song.beats].map((b) => start + b);
+    const out = [];
+    for (const r of [...this.pastRuns, { base: this.songBase, until: Infinity }]) {
+      const start = r.base + LEAD_BEATS + this.upBeats();
+      for (const b of this.song.bars) if (start + b <= r.until) out.push({ b: start + b, end: false });
+      if (start + this.song.beats <= r.until) out.push({ b: start + this.song.beats, end: true });
+    }
+    return out;
   }
 
   // Waar (afgelegde weg) de noot op tel 'beat' op de bodem staat.
@@ -407,6 +454,7 @@ export class LamaGame {
       while (this.hist.length > 2 && now - this.hist[0].t > 4) this.hist.shift();
       this.fill();
       this.collide(now);
+      if (this.restartAt) { this.restartSong(this.restartAt); this.restartAt = null; }
       if (this.running) this.checkSongDone();
     } else if (!this.over) {
       this.dist += 60 * dt; // rustig wandelen in het startscherm
@@ -495,6 +543,14 @@ export class LamaGame {
 
   judge(n, ok) {
     if (ok) this.hits++; else this.misses++;
+    if (this.loop && this.song && n.run != null) {
+      if (!ok && !this.restartAt) this.restartAt = n;
+      else if (ok && n.last && !this.restartAt) { // na een fout zijn de noten van die keer weg: wie de laatste haalt, speelde foutloos
+        this.cleanRuns++;
+        this.say(this.cleanRuns === 1 ? 'Foutloos! Nog een keer?' : `${this.cleanRuns} keer foutloos!`);
+        this.onLoopDone?.();
+      }
+    }
     devlog.write('oordeel', { t: +this.o.ctx().currentTime.toFixed(3), noot: n.p, midi: soundingMidi(n.p), soort: n.kind, juist: ok, uitslag: n.state, tekst: n.wrongText || '', gespeeld: n.played || null, poort: !!n.boss });
     this.onJudge?.(n.p, ok, n);
   }
@@ -583,7 +639,7 @@ export class LamaGame {
       if (!this.immortal() && this.score > this.best) {
         if (!this.newBest && this.best > 0) this.say('Nieuw record!');
         this.best = this.score; this.newBest = true; this.onBest?.(this.best);
-      } else if (this.score % 10 === 0) this.say(`${this.score} punten!`);
+      } else if (this.score % 10 === 0 && !this.loop) this.say(`${this.score} punten!`);
       this.floaters.push({ x: PLAYER_X, y: GROUND_Y - PLAYER_H - 20, text: '+1', life: 0.8 });
       this.player.queue.push(tgt); // meteen springen, over het monster van deze noot
       this.sendExpect();
@@ -687,10 +743,9 @@ export class LamaGame {
     // liedje: maatstrepen (vlak voor de eerste noot van de maat), een dubbele streep op het einde
     const bars = this.barLines();
     g.strokeStyle = '#8f8296';
-    bars.forEach((b, i) => {
+    bars.forEach(({ b, end }) => {
       const x = PLAYER_X + (b - this.beat) * this.pxb - 24;
       if (x > W || x < NOTE_X0 - 10) return;
-      const end = i === bars.length - 1;
       g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, lineY(0)); g.lineTo(x, lineY(4)); g.stroke();
       if (end) { g.lineWidth = 4; g.beginPath(); g.moveTo(x + 6, lineY(0)); g.lineTo(x + 6, lineY(4)); g.stroke(); }
     });

@@ -32,6 +32,7 @@ const DEFAULTS = () => ({
     micId: '', // gekozen microfoon (deviceId); '' = standaard van de browser
     keyboard: false, // spelen met het toetsenbord in plaats van de gitaar
     noGuitar: false, // vrij oefenen zonder gitaar: tik op de juiste noot (3 keuzes)
+    songLoop: false, // liedjes: eindeloos herhalen en bij elke fout terug vanaf het begin
     selection: [...DEFAULT_SELECTION], // noten bij vrij oefenen
     freeTab: 'notes', // vrij oefenen: 'notes' (zelf noten kiezen) of 'songs' (liedjesbibliotheek)
   },

@@ -45,6 +45,7 @@ export class PlayScene {
 
   get journey() { return this.mode === 'reis'; }
   get songMode() { return this.mode === 'lied'; }
+  get loop() { return this.songMode && S.settings.songLoop; } // liedje eindeloos herhalen, bij een fout opnieuw
   get tap() { return !this.journey && S.settings.noGuitar; } // vrij oefenen zonder gitaar: tikken op een keuze
   atFront() { return S.journey.at === S.journey.stage; }
 
@@ -57,6 +58,7 @@ export class PlayScene {
     game.onCoin = () => { S.wallet.coins++; persist(); };
     game.onBest = (best) => { S.best[this.bestKey()] = best; persist(); };
     game.onSongDone = () => this.onSongDone();
+    game.onLoopDone = () => this.onLoopDone();
     mic.listen((ev) => game.onNote(ev));
     this.configure();
     this.onVis = () => { if (document.hidden && this.state === 'play' && game.running) this.pause(); };
@@ -90,7 +92,8 @@ export class PlayScene {
     g.showFingers = st.fingers;
     g.bigName = st.bigName && !this.tap; // zonder gitaar staan daar de keuzeknoppen
     g.keyboard = st.keyboard && !this.tap;
-    g.maxLives = this.journey ? JOURNEY_LIVES : st.lives;
+    g.loop = this.loop;
+    g.maxLives = this.journey ? JOURNEY_LIVES : this.loop ? 0 : st.lives; // herhalen: je kan niet verliezen
     g.outfit = S.wallet.outfit;
     g.fresh = j.fresh;
     g.coinChance = this.journey ? COINS_JOURNEY : COINS_FREE;
@@ -181,6 +184,12 @@ export class PlayScene {
     this.stateT = this.t;
     persist();
     setTimeout(() => sfx(pct >= 70 ? 'start' : 'over'), 350);
+  }
+
+  // Herhalen: een keer foutloos gespeeld = 100% (sterren in de bibliotheek).
+  onLoopDone() {
+    const key = this.song.id + (this.tap ? '|tik' : '');
+    if ((S.songs[key] || 0) < 100) { S.songs[key] = 100; persist(); }
   }
 
   onOver() {
@@ -338,7 +347,12 @@ export class PlayScene {
     let x = 12;
     // levens
     const shake = game.hurtT > 0 ? Math.sin(game.hurtT * 50) * 4 * game.hurtT : 0;
-    if (game.immortal()) {
+    if (game.loop) { // herhalen: hoe vaak al foutloos
+      pill(g, x, y, 170, h);
+      icon(g, 'retry', x + 22, cy, 20, C.pink);
+      text(g, `${game.cleanRuns}× foutloos`, x + 42, cy + 1, { size: 15, color: '#fff', align: 'left', maxW: 120 });
+      x += 180;
+    } else if (game.immortal()) {
       pill(g, x, y, 128, h);
       text(g, '∞', x + 22, cy, { size: 28, color: C.pink, stroke: C.ink, strokeW: 5 });
       text(g, `${game.bumps} botsing${game.bumps === 1 ? '' : 'en'}`, x + 42, cy + 1, { size: 15, color: '#fff', align: 'left' });
@@ -466,7 +480,8 @@ export class PlayScene {
       const lines = [
         this.tap ? 'Tik op de noot boven het monster terwijl ze in de blauwe balk staat: de lama springt!'
           : 'Speel de noot boven het monster terwijl ze in de blauwe balk staat: de lama springt!',
-        game.immortal() ? 'Fout of te laat = botsen. Onsterfelijk: je kan niet verliezen (en er zijn geen munten).'
+        this.loop ? 'Herhalen: het liedje blijft opnieuw beginnen. Fout of te laat? Dan meteen terug vanaf het begin.'
+          : game.immortal() ? 'Fout of te laat = botsen. Onsterfelijk: je kan niet verliezen (en er zijn geen munten).'
           : `Fout of te laat = botsen. Je hebt ${game.maxLives} ${game.maxLives === 1 ? 'leven' : 'levens'}. Een munt in de lucht? ${this.tap ? 'Tik' : 'Speel'} die noot en vang ze!`,
       ];
       if (this.songMode) lines.splice(1, 0, this.song.minDur < 1 ? 'Volg het ritme van het liedje: bij korte noten staan de monsters dichter en springt de lama sneller!' : 'Volg het ritme van het liedje: lange noten = meer ruimte tot het volgende monster.');
