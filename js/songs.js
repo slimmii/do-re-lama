@@ -129,6 +129,8 @@ const RAW = [
     tune: 'B4/2 G4 B4 | A4/2 G4 A4 | G4 A4 B4 A4 | B4/2 G4/2 | B4/2 G4 B4 | A4/2 G4 A4 | G4 A4 B4 A4 | G4/4' },
   { id: 'simisol14', name: 'Korte romance', from: 'Simisol', meter: 4,
     tune: 'B4/2 B4 D5 | B4 D5 B4 D5/.5 D5/.5 | B4 B4 D5 D5 | B4/4' },
+  { id: 'simisol17', name: 'Boer, wat zeg je van mijn kippen?', from: 'Simisol', meter: 3,
+    tune: 'D5/2 B4 | D5/2 B4 | A4 B4 C5 | B4/2 G4 | D5/2 B4 | D5/2 B4 | A4 B4 A4 | G4/3' },
   { id: 'simisol20', name: 'Laat ons allen zingen', from: 'Simisol', meter: 4,
     tune: 'G4 G4 A4 A4 | B4/2 B4/2 | E5 C5 E5 C5 | B4/2 A4/2 | G4 G4 A4 A4 | B4/2 D5/2 | D5/2 C5/2 | B4/4' },
   { id: 'simisol22', name: 'Mopje', from: 'Simisol', meter: 4,
